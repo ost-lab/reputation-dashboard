@@ -5,18 +5,29 @@ import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { Search, Mail, Star, User, MoreVertical, Phone } from 'lucide-react';
 
+// FIX: Define the shape of a Customer object
+interface Customer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  avg_rating: number;
+  total_reviews: number;
+  status: string;
+}
+
 export default function CustomersPage() {
-  // FIX: Explicitly type the state array
-  const [customers, setCustomers] = useState<any[]>([]); 
+  // FIX: Apply the interface to the state
+  const [customers, setCustomers] = useState<Customer[]>([]); 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   // 1. MOCK DATA
   useEffect(() => {
     // Simulate API fetch
-    const MOCK_DATA = [
+    const MOCK_DATA: Customer[] = [
       { id: 1, name: "Sarah Jenkins", email: "sarah@gmail.com", phone: "555-0123", avg_rating: 5.0, total_reviews: 4, status: "vip" },
-      { id: 2, user: "Mike T.", name: "Mike Thompson", email: "mike.t@yahoo.com", phone: "555-0198", avg_rating: 2.5, total_reviews: 2, status: "risk" },
+      { id: 2, name: "Mike Thompson", email: "mike.t@yahoo.com", phone: "555-0198", avg_rating: 2.5, total_reviews: 2, status: "risk" },
       { id: 3, name: "Emily Rogers", email: "emily.r@company.com", phone: "555-0144", avg_rating: 4.8, total_reviews: 12, status: "fan" },
       { id: 4, name: "David Kim", email: "dkim@tech.net", phone: "555-0112", avg_rating: 1.0, total_reviews: 1, status: "churned" },
       { id: 5, name: "Jessica Alva", email: "jess.a@gmail.com", phone: "555-0176", avg_rating: 3.5, total_reviews: 1, status: "neutral" },
@@ -76,10 +87,11 @@ export default function CustomersPage() {
                 </thead>
                 <tbody>
                    {filteredCustomers.map((c) => {
-                      // Calculate status based on rating (The logic that was failing)
-                      const rating = parseFloat(c.avg_rating).toFixed(1);
-                      const isFan = parseFloat(rating) >= 4;
-                      const isHater = parseFloat(rating) <= 2;
+                      // Calculate status based on rating
+                      const ratingVal = c.avg_rating;
+                      const ratingDisplay = ratingVal.toFixed(1);
+                      const isFan = ratingVal >= 4;
+                      const isHater = ratingVal <= 2;
 
                       return (
                         <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
@@ -109,7 +121,7 @@ export default function CustomersPage() {
                                  <div className="flex text-yellow-400">
                                     <Star size={16} fill="currentColor" />
                                  </div>
-                                 <span className="font-bold text-gray-800">{rating}</span>
+                                 <span className="font-bold text-gray-800">{ratingDisplay}</span>
                                  <span className="text-xs text-gray-400">({c.total_reviews} reviews)</span>
                                  
                                  {isFan && <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">FAN</span>}
