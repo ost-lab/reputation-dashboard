@@ -5,8 +5,18 @@ import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import { Code, Layout, Moon, Sun, Copy, Check, Eye } from 'lucide-react';
 
+// FIX: Define the Review structure
+interface WidgetReview {
+  id?: number;
+  user_name: string;
+  source: string;
+  rating: number;
+  text: string;
+}
+
 export default function WidgetsPage() {
-  const [reviews, setReviews] = useState([]);
+  // FIX: Apply the interface to state
+  const [reviews, setReviews] = useState<WidgetReview[]>([]);
   const [copied, setCopied] = useState(false);
 
   // Widget Configuration State
@@ -21,10 +31,18 @@ export default function WidgetsPage() {
   // 1. Fetch real reviews to show in the preview
   useEffect(() => {
     async function fetchReviews() {
-      const res = await fetch('/api/reviews');
-      const data = await res.json();
-      // Only show top rated ones for the widget
-      setReviews(data.filter(r => r.rating >= config.minStars).slice(0, 6));
+      try {
+        const res = await fetch('/api/reviews');
+        // FIX: Cast the API response to the array type
+        const data: WidgetReview[] = await res.json();
+        
+        // Now TypeScript knows 'r' is a WidgetReview
+        if (Array.isArray(data)) {
+            setReviews(data.filter(r => r.rating >= config.minStars).slice(0, 6));
+        }
+      } catch (err) {
+        console.error("Failed to load widget reviews", err);
+      }
     }
     fetchReviews();
   }, [config.minStars]);
@@ -147,37 +165,37 @@ export default function WidgetsPage() {
                     w-full max-w-2xl p-6 rounded-xl shadow-2xl transition-all duration-500
                     ${config.theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}
                   `}>
-                    <div className="flex justify-between items-end mb-6 border-b border-gray-100/10 pb-4">
-                       <div>
-                          <h2 className="font-bold text-xl">Our Customers Love Us</h2>
-                          <div className="text-yellow-400 text-sm">★★★★★ <span className={`text-xs ml-2 opacity-70 ${config.theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>Based on {reviews.length} reviews</span></div>
-                       </div>
-                       <div className="text-xs font-bold opacity-50">Powered by RM</div>
-                    </div>
+                     <div className="flex justify-between items-end mb-6 border-b border-gray-100/10 pb-4">
+                        <div>
+                           <h2 className="font-bold text-xl">Our Customers Love Us</h2>
+                           <div className="text-yellow-400 text-sm">★★★★★ <span className={`text-xs ml-2 opacity-70 ${config.theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}>Based on {reviews.length} reviews</span></div>
+                        </div>
+                        <div className="text-xs font-bold opacity-50">Powered by RM</div>
+                     </div>
 
-                    <div className={`
-                      ${config.layout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'flex gap-4 overflow-x-auto pb-4 snap-x'}
-                    `}>
-                       {reviews.map((r, i) => (
-                         <div key={i} className={`
-                           p-4 rounded-lg border min-w-[250px] flex-1
-                           ${config.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}
-                         `}>
-                            <div className="flex justify-between mb-2">
-                               <span className="font-bold text-sm">{r.user_name}</span>
-                               {config.showSource && <span className="text-[10px] uppercase opacity-60 tracking-wider">{r.source}</span>}
-                            </div>
-                            <div className="text-yellow-400 text-xs mb-2">{'★'.repeat(r.rating)}</div>
-                            <p className={`text-sm line-clamp-3 italic ${config.theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>"{r.text}"</p>
-                         </div>
-                       ))}
-                       
-                       {reviews.length === 0 && (
+                     <div className={`
+                       ${config.layout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'flex gap-4 overflow-x-auto pb-4 snap-x'}
+                     `}>
+                        {reviews.map((r, i) => (
+                          <div key={i} className={`
+                            p-4 rounded-lg border min-w-[250px] flex-1
+                            ${config.theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-100'}
+                          `}>
+                             <div className="flex justify-between mb-2">
+                                <span className="font-bold text-sm">{r.user_name}</span>
+                                {config.showSource && <span className="text-[10px] uppercase opacity-60 tracking-wider">{r.source}</span>}
+                             </div>
+                             <div className="text-yellow-400 text-xs mb-2">{'★'.repeat(r.rating)}</div>
+                             <p className={`text-sm line-clamp-3 italic ${config.theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>"{r.text}"</p>
+                          </div>
+                        ))}
+                        
+                        {reviews.length === 0 && (
                           <div className="text-center w-full py-8 opacity-50 italic">
                              Add more 4-5 star reviews to see them here!
                           </div>
-                       )}
-                    </div>
+                        )}
+                     </div>
                   </div>
 
                </div>
