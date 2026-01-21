@@ -4,34 +4,57 @@ import { useState, useEffect } from 'react';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
 import PlatformIcon from '../../components/PlatformIcon';
-import ReplyModal from '../../components/ReplyModal'; // <--- Import the new Modal
+import ReplyModal from '../../components/ReplyModal'; 
 import { Trash2, Search, Reply, CheckCircle } from 'lucide-react';
 
+interface Review {
+  id: number;
+  user_name: string;
+  source: string;
+  rating: number;
+  date: string;
+  text: string;
+  admin_reply?: string;
+}
+
 export default function ReviewsPage() {
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // STATE FOR REPLY MODAL
-  const [selectedReview, setSelectedReview] = useState(null);
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
 
   useEffect(() => {
     fetchReviews();
   }, []);
 
+  // FIX: Load from LocalStorage instead of API
   async function fetchReviews() {
-    try {
-      const res = await fetch('/api/reviews');
-      const data = await res.json();
-      setReviews(data);
-    } catch (error) {
-      console.error(error);
+    const saved = localStorage.getItem('my_reviews');
+    if (saved) {
+      setReviews(JSON.parse(saved));
+    } else {
+      // Initialize Mock Data if empty
+      const MOCK_DATA = [
+        { id: 1, user_name: "Sarah Jenkins", source: "google", rating: 5, date: "2 days ago", text: "Absolutely loved the service! The staff was so friendly." },
+        { id: 2, user_name: "Mike Thompson", source: "yelp", rating: 3, date: "3 days ago", text: "It was okay, but the wait time was a bit long." },
+        { id: 3, user_name: "Emily Rogers", source: "facebook", rating: 5, date: "1 week ago", text: "Best experience ever. Will definitely come back.", admin_reply: "Thanks Emily! See you soon." },
+        { id: 4, user_name: "David Kim", source: "google", rating: 1, date: "2 weeks ago", text: "Terrible parking situation. Never again." },
+      ];
+      setReviews(MOCK_DATA);
+      localStorage.setItem('my_reviews', JSON.stringify(MOCK_DATA));
     }
   }
 
   const handleDelete = async (id: number) => {
     if(!confirm("Are you sure?")) return;
-    const res = await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
-    if (res.ok) setReviews(reviews.filter(r => r.id !== id));
+    
+    // Update Local State
+    const updated = reviews.filter(r => r.id !== id);
+    setReviews(updated);
+    
+    // Update Storage
+    localStorage.setItem('my_reviews', JSON.stringify(updated));
   };
 
   const filteredReviews = reviews.filter(r => 
@@ -65,62 +88,71 @@ export default function ReviewsPage() {
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
              <table className="w-full text-left border-collapse">
-               <thead className="bg-gray-50 border-b">
-                 <tr>
-                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Customer</th>
-                   <th className="p-4 text-xs font-bold text-gray-500 uppercase w-1/3">Review</th>
-                   <th className="p-4 text-xs font-bold text-gray-500 uppercase w-1/3">Your Reply</th>
-                   <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Actions</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y">
-                 {filteredReviews.map(r => (
-                   <tr key={r.id} className="hover:bg-gray-50 group">
-                     <td className="p-4 align-top">
-                        <div className="flex items-center gap-3 mb-1">
-                           <PlatformIcon source={r.source} />
-                           <span className="font-bold text-gray-800 text-sm">{r.user_name}</span>
-                        </div>
-                        <div className="text-xs text-yellow-500">{'★'.repeat(r.rating)}</div>
-                     </td>
-                     <td className="p-4 align-top">
-                        <p className="text-sm text-gray-600 line-clamp-3">{r.text}</p>
-                     </td>
-                     <td className="p-4 align-top">
-                        {r.admin_reply ? (
-                           <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                              <div className="flex items-center gap-2 mb-1">
-                                 <CheckCircle size={12} className="text-green-600" />
-                                 <span className="text-xs font-bold text-green-700">Replied</span>
-                              </div>
-                              <p className="text-xs text-green-800 italic line-clamp-2">"{r.admin_reply}"</p>
-                           </div>
-                        ) : (
-                           <span className="text-xs text-gray-400 italic">No reply yet.</span>
-                        )}
-                     </td>
-                     <td className="p-4 text-right align-top">
-                        <div className="flex justify-end gap-2">
-                           {/* REPLY BUTTON */}
-                           <button 
-                             onClick={() => setSelectedReview(r)}
-                             className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
-                           >
-                             <Reply size={14} /> Reply
-                           </button>
-
-                           {/* DELETE BUTTON */}
-                           <button 
-                             onClick={() => handleDelete(r.id)}
-                             className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
-                           >
-                             <Trash2 size={16} />
-                           </button>
-                        </div>
-                     </td>
+                <thead className="bg-gray-50 border-b">
+                   <tr>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase">Customer</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase w-1/3">Review</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase w-1/3">Your Reply</th>
+                      <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Actions</th>
                    </tr>
-                 ))}
-               </tbody>
+                </thead>
+                <tbody className="divide-y">
+                   {filteredReviews.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50 group">
+                         <td className="p-4 align-top">
+                            <div className="flex items-center gap-3 mb-1">
+                               <PlatformIcon source={r.source} />
+                               <span className="font-bold text-gray-800 text-sm">{r.user_name}</span>
+                            </div>
+                            <div className="text-xs text-yellow-500 flex">
+                                {[...Array(5)].map((_, i) => (
+                                    <span key={i} className={i < r.rating ? "text-yellow-500" : "text-gray-200"}>★</span>
+                                ))}
+                            </div>
+                         </td>
+                         <td className="p-4 align-top">
+                            <p className="text-sm text-gray-600 line-clamp-3">{r.text}</p>
+                         </td>
+                         <td className="p-4 align-top">
+                            {r.admin_reply ? (
+                               <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                                  <div className="flex items-center gap-2 mb-1">
+                                     <CheckCircle size={12} className="text-green-600" />
+                                     <span className="text-xs font-bold text-green-700">Replied</span>
+                                  </div>
+                                  <p className="text-xs text-green-800 italic line-clamp-2">"{r.admin_reply}"</p>
+                               </div>
+                            ) : (
+                               <span className="text-xs text-gray-400 italic">No reply yet.</span>
+                            )}
+                         </td>
+                         <td className="p-4 text-right align-top">
+                            <div className="flex justify-end gap-2">
+                               {/* REPLY BUTTON */}
+                               <button 
+                                 onClick={() => setSelectedReview(r)}
+                                 className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
+                               >
+                                 <Reply size={14} /> Reply
+                               </button>
+
+                               {/* DELETE BUTTON */}
+                               <button 
+                                 onClick={() => handleDelete(r.id)}
+                                 className="p-2 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-colors"
+                               >
+                                 <Trash2 size={16} />
+                               </button>
+                            </div>
+                         </td>
+                      </tr>
+                   ))}
+                   {filteredReviews.length === 0 && (
+                     <tr>
+                        <td colSpan={4} className="p-8 text-center text-gray-400">No reviews found.</td>
+                     </tr>
+                   )}
+                </tbody>
              </table>
           </div>
         </main>
