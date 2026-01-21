@@ -30,32 +30,23 @@ export default function ReviewsPage() {
 
   // FIX: Load from LocalStorage instead of API
   async function fetchReviews() {
-    const saved = localStorage.getItem('my_reviews');
-    if (saved) {
-      setReviews(JSON.parse(saved));
-    } else {
-      // Initialize Mock Data if empty
-      const MOCK_DATA = [
-        { id: 1, user_name: "Sarah Jenkins", source: "google", rating: 5, date: "2 days ago", text: "Absolutely loved the service! The staff was so friendly." },
-        { id: 2, user_name: "Mike Thompson", source: "yelp", rating: 3, date: "3 days ago", text: "It was okay, but the wait time was a bit long." },
-        { id: 3, user_name: "Emily Rogers", source: "facebook", rating: 5, date: "1 week ago", text: "Best experience ever. Will definitely come back.", admin_reply: "Thanks Emily! See you soon." },
-        { id: 4, user_name: "David Kim", source: "google", rating: 1, date: "2 weeks ago", text: "Terrible parking situation. Never again." },
-      ];
-      setReviews(MOCK_DATA);
-      localStorage.setItem('my_reviews', JSON.stringify(MOCK_DATA));
+    try {
+      const res = await fetch('/api/reviews'); // Calls our new SQL route
+      const data = await res.json();
+      setReviews(data);
+    } catch (error) {
+      console.error("Failed to fetch", error);
     }
   }
 
   const handleDelete = async (id: number) => {
-    if(!confirm("Are you sure?")) return;
-    
-    // Update Local State
-    const updated = reviews.filter(r => r.id !== id);
-    setReviews(updated);
-    
-    // Update Storage
-    localStorage.setItem('my_reviews', JSON.stringify(updated));
-  };
+  if(!confirm("Are you sure?")) return;
+  
+  await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
+  
+  // Refresh data from DB
+  fetchReviews();
+};
 
   const filteredReviews = reviews.filter(r => 
     (r.text || "").toLowerCase().includes(searchTerm.toLowerCase()) ||

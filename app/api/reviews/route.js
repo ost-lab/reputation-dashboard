@@ -1,91 +1,61 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../lib/db';
-import { analyzeReview } from '../../../lib/openai';
+import pool from '@/lib/db';
 
-// 1. GET REVIEWS
+// 1. GET ALL REVIEWS
 export async function GET() {
   try {
-    const result = await pool.query('SELECT * FROM reviews ORDER BY created_at DESC');
+    const result = await pool.query('SELECT * FROM reviews ORDER BY date DESC');
     return NextResponse.json(result.rows);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Database Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
   }
 }
 
-// 2. POST NEW REVIEW (With AI Reply)
-export async function POST(request) {
+// 2. ADD A REVIEW (POST)
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    
-    const userNameInput = body.user_name || body.user || "Anonymous";
-    const sourceInput = body.source || "Manual";
-    const textInput = body.text || "";
-    const ratingInput = parseInt(body.rating) || 5;
+    const body = await req.json();
+    const { user_name, rating, text, source } = body;
 
-    // A. Ask AI for analysis AND reply
-    let sentiment = 'neutral';
-    let reply = ''; 
+    const result = await pool.query(
+      'INSERT INTO reviews (user_name, rating, text, source) VALUES ($1, $2, $3, $4) RETURNING *',
+      [user_name, rating, text, source || 'Manual']
+    );
 
-   try {
-      const aiResult = await analyzeReview(textInput);
-      if (aiResult) {
-        sentiment = aiResult.sentiment || 'neutral';
-        reply = aiResult.reply || ""; 
-      }
-    } catch (err) {
-      console.log("AI Analysis failed:", err.message);
-    }
-
-    // --- 2. THE SAFETY NET (Fixes your Red 5-Star issue) ---
-    // If the rating is high, FORCE Positive (ignoring AI errors)
-    if (ratingInput >= 4) {
-        sentiment = 'positive';
-    } 
-    // If the rating is low, FORCE Negative
-    else if (ratingInput <= 2) {
-        sentiment = 'negative';
-    }
-    // If 3 stars and AI failed (neutral), keep it neutral or make it mixed
-    // (Logic: Stars always tell the truth more than AI)
-
-    console.log(`Saving Review: ${ratingInput} Stars -> Sentiment: ${sentiment}`);
-
-    // 3. Insert into DB
-    const query = `
-      INSERT INTO reviews (user_name, source, text, sentiment, rating, ai_reply, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      RETURNING *;
-    `;
-    
-    const result = await pool.query(query, [
-      userNameInput, sourceInput, textInput, sentiment, ratingInput, reply
-    ]);
-    
     return NextResponse.json(result.rows[0]);
-    
   } catch (error) {
-    console.error("Database Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save review' }, { status: 500 });
   }
 }
 
-// 4. UPDATE REVIEW (Save Reply)
-export async function PATCH(request) {
+// 3. UPDATE / REPLY (PATCH)
+export async function PATCH(req: Request) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { id, reply } = body;
 
-    if (!id || !reply) {
-      return NextResponse.json({ error: "ID and Reply text required" }, { status: 400 });
-    }
+    const result = await pool.query(
+      "UPDATE reviews SET admin_reply = $1, status = 'replied' WHERE id = $2 RETURNING *",
+      [reply, id]
+    );
 
-    // Save the admin_reply to the database
-    const query = 'UPDATE reviews SET admin_reply = $1 WHERE id = $2 RETURNING *';
-    const result = await pool.query(query, [reply, id]);
-    
-    return NextResponse.json({ success: true, review: result.rows[0] });
+    return NextResponse.json(result.rows[0]);
   } catch (error) {
-    console.error("Update Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update review' }, { status: 500 });
+  }
+}
+
+// 4. DELETE (DELETE)
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    await pool.query('DELETE FROM reviews WHERE id = $1', [id]);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
   }
 }
