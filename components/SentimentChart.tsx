@@ -2,48 +2,39 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-export default function SentimentChart({ reviews = [] }) {
-  
-  // 1. Calculate Data from Props
-  const sentimentCounts = reviews.reduce((acc, r) => {
-    const s = r.sentiment || 'neutral'; // 'positive', 'negative', or 'neutral'
-    acc[s] = (acc[s] || 0) + 1;
+// FIX: Explicitly type the props
+export default function SentimentChart({ reviews }: { reviews: any[] }) {
+
+  const sentimentCounts = reviews.reduce((acc: any, r) => {
+    const s = (r.sentiment || 'neutral').toLowerCase();
+    if (s.includes('positive')) acc[0].value++;
+    else if (s.includes('negative')) acc[2].value++;
+    else acc[1].value++;
     return acc;
-  }, { positive: 0, neutral: 0, negative: 0 });
+  }, [
+    { name: 'Positive', value: 0, color: '#22c55e' }, // Green
+    { name: 'Neutral', value: 0, color: '#eab308' },  // Yellow
+    { name: 'Negative', value: 0, color: '#ef4444' }  // Red
+  ]);
 
-  // 2. Format for Recharts
-  const data = [
-    { name: 'Positive', value: sentimentCounts.positive, color: '#4ade80' }, // Green
-    { name: 'Neutral', value: sentimentCounts.neutral, color: '#94a3b8' },   // Gray
-    { name: 'Negative', value: sentimentCounts.negative, color: '#f87171' }  // Red
-  ];
-
-  // Prevent empty chart if no data
-  if (reviews.length === 0) {
-    return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 h-80 flex flex-col items-center justify-center text-gray-400">
-        <p>No data yet</p>
-        <p className="text-xs">Add a review to see the chart.</p>
-      </div>
-    );
-  }
+  const activeData = sentimentCounts.filter((d: any) => d.value > 0);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-      <h3 className="font-bold text-gray-700 mb-4">Sentiment Analysis</h3>
-      
-      {/* Chart Container */}
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <h3 className="font-bold text-gray-800 mb-4">Sentiment Analysis</h3>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={activeData}
+              cx="50%"
+              cy="50%"
               innerRadius={60}
               outerRadius={80}
               paddingAngle={5}
               dataKey="value"
             >
-              {data.map((entry, index) => (
+              {activeData.map((entry: any, index: number) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
