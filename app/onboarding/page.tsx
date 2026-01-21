@@ -7,11 +7,12 @@ import { Building2, Utensils, Stethoscope, Gavel, Home, ArrowRight, CheckCircle,
 export default function OnboardingPage() {
   const router = useRouter();
   
-  // Steps: 0 = Account Type, 1 = Industry, 2 = AI Keywords
-  const [step, setStep] = useState(-1); // Start at -1 to allow loading check
+  // FIX: Explicitly tell TypeScript this can be a number
+  const [step, setStep] = useState<number>(-1); 
   const [loading, setLoading] = useState(false);
   
-  const [accountType, setAccountType] = useState(null); 
+  // FIX: Explicitly tell TypeScript this can be a string OR null
+  const [accountType, setAccountType] = useState<string | null>(null); 
   const [businessName, setBusinessName] = useState('');
   
   // Form State
@@ -40,8 +41,8 @@ export default function OnboardingPage() {
     }
   }, []);
 
-  // 2. Handle Account Type Selection (For Google Users)
-  const handleSelectType = (type) => {
+  // FIX: Add type 'string' to parameter
+  const handleSelectType = (type: string) => {
     setAccountType(type);
     localStorage.setItem('account_type', type);
     
@@ -189,9 +190,6 @@ export default function OnboardingPage() {
                 {/* Back Button Logic */}
                 <button 
                     onClick={() => {
-                        // If we are Personal, Step 2's "Back" should go to Step 0 (Type Select) if it was a google signup, 
-                        // OR we might want to prevent going back if it was email signup. 
-                        // For simplicity:
                         if (accountType === 'personal') setStep(0);
                         else setStep(1);
                     }}
