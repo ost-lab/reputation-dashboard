@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-// FIX: Explicitly type the props
+// FIX: Define Props
 export default function SentimentChart({ reviews }: { reviews: any[] }) {
 
   const sentimentCounts = reviews.reduce((acc: any, r) => {
@@ -12,9 +12,9 @@ export default function SentimentChart({ reviews }: { reviews: any[] }) {
     else acc[1].value++;
     return acc;
   }, [
-    { name: 'Positive', value: 0, color: '#22c55e' }, // Green
-    { name: 'Neutral', value: 0, color: '#eab308' },  // Yellow
-    { name: 'Negative', value: 0, color: '#ef4444' }  // Red
+    { name: 'Positive', value: 0, color: '#22c55e' }, 
+    { name: 'Neutral', value: 0, color: '#eab308' },  
+    { name: 'Negative', value: 0, color: '#ef4444' } 
   ]);
 
   const activeData = sentimentCounts.filter((d: any) => d.value > 0);

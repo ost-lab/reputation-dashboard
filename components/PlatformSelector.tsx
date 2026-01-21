@@ -1,17 +1,23 @@
 "use client";
 import { Plus, LayoutGrid, Phone } from 'lucide-react'; 
 
-// DO NOT IMPORT MASTER_PLATFORMS HERE
+// FIX: Define Props Interface
+interface PlatformSelectorProps {
+  selected: string;
+  onSelect: (id: string) => void;
+  activePlatformIds: string[];
+  onAddClick: () => void;
+  allPlatforms: any[]; 
+}
 
-export default function PlatformSelector({ selected, onSelect, activePlatformIds, onAddClick, allPlatforms }) {
+export default function PlatformSelector({ selected, onSelect, activePlatformIds, onAddClick, allPlatforms }: PlatformSelectorProps) {
   
   const fixedOptions = [
     { id: 'all', label: 'All Sources', icon: <LayoutGrid size={18} />, color: 'text-gray-600' },
     { id: 'manual', label: 'Manual / Phone', icon: <Phone size={18} />, color: 'text-gray-500' },
   ];
 
-  // USE THE PROP 'allPlatforms'
-  // If allPlatforms is undefined (initial load), default to empty array to prevent crash
+  // Default to empty array if undefined to prevent crashes
   const safeList = allPlatforms || [];
   
   const userOptions = safeList.filter(p => activePlatformIds.includes(p.id));
@@ -32,7 +38,6 @@ export default function PlatformSelector({ selected, onSelect, activePlatformIds
             }
           `}
         >
-           {/* If p.icon exists use it, otherwise use First Letter */}
           <div className={`${selected === p.id ? 'text-blue-600' : p.color || 'text-gray-500'}`}>
             {p.icon ? p.icon : <span className="font-bold">{p.label ? p.label.charAt(0) : '?'}</span>}
           </div>
@@ -42,7 +47,6 @@ export default function PlatformSelector({ selected, onSelect, activePlatformIds
         </button>
       ))}
 
-      {/* Add Button */}
       <button 
         onClick={onAddClick}
         className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 text-gray-400 transition-all"

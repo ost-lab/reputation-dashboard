@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; // <--- Import Router
-import { Bell, Search, User, Building2, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation'; 
+import { Bell, Search, User, Building2, LogOut, Settings } from 'lucide-react';
 
 export default function Header() {
   const router = useRouter();
@@ -9,7 +9,6 @@ export default function Header() {
   const [accountType, setAccountType] = useState('business');
   const [isPro, setIsPro] = useState(false);
   
-  // DROPDOWN STATE
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
@@ -26,7 +25,6 @@ export default function Header() {
     if (plan === 'pro' || plan === 'enterprise') setIsPro(true);
   }, []);
 
-  // LOGOUT LOGIC (Moved here)
   const handleLogout = () => {
     if (confirm("Are you sure you want to log out?")) {
       localStorage.removeItem('auth_token');
@@ -37,7 +35,7 @@ export default function Header() {
   return (
     <header className="h-16 bg-white border-b flex items-center justify-between px-8 ml-16 md:ml-20 sticky top-0 z-40">
       
-      {/* LEFT SIDE: Name & Badge */}
+      {/* LEFT SIDE */}
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${accountType === 'business' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
            {accountType === 'business' ? <Building2 size={20} /> : <User size={20} />}
@@ -57,48 +55,40 @@ export default function Header() {
         </div>
       </div>
 
-      {/* RIGHT SIDE: Search & Avatar */}
+      {/* RIGHT SIDE */}
       <div className="flex items-center gap-6">
         
-        {/* Search Bar */}
         <div className="relative hidden md:block">
            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
            <input type="text" placeholder="Search..." className="bg-gray-100 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" />
         </div>
 
-        {/* Notification Bell */}
         <button className="relative text-gray-500 hover:text-blue-600 transition-colors">
           <Bell size={20} />
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
         </button>
 
-        {/* --- USER AVATAR DROPDOWN --- */}
+        {/* DROPDOWN */}
         <div className="relative">
           <button 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="flex items-center gap-2 focus:outline-none"
           >
-            {/* Avatar Circle */}
             <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md border-2 border-white cursor-pointer hover:shadow-lg transition-all">
               {displayName.charAt(0)}
             </div>
           </button>
 
-          {/* THE DROPDOWN MENU */}
           {isDropdownOpen && (
             <>
-              {/* Invisible backdrop to close menu when clicking outside */}
               <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)}></div>
               
               <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                 
-                 {/* Menu Header */}
                  <div className="px-4 py-3 border-b bg-gray-50">
                     <p className="text-xs font-bold text-gray-500 uppercase">My Account</p>
                     <p className="text-sm font-bold text-gray-800 truncate">{displayName}</p>
                  </div>
 
-                 {/* Menu Items */}
                  <div className="p-1">
                     <button 
                       onClick={() => router.push('/settings')}

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react'; // <--- Import Hooks
+import { useState, useEffect } from 'react'; 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, MessageSquare, CreditCard, Settings, Swords, Code } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [accountType, setAccountType] = useState('business'); // Default
+  const [accountType, setAccountType] = useState('business'); 
 
-  // 1. Check Account Type on Mount
   useEffect(() => {
     const type = localStorage.getItem('account_type');
     if (type) setAccountType(type);
@@ -19,8 +18,7 @@ export default function Sidebar() {
     { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
     { name: 'Reviews', icon: <MessageSquare size={20} />, path: '/reviews' },
     
-    // 2. CONDITIONALLY RENDER COMPETITORS
-    // Only show if accountType is 'business'
+    // Condition: Only show Competitors if business
     ...(accountType === 'business' ? [
       { name: 'Competitors', icon: <Swords size={20} />, path: '/competitors' }
     ] : []),

@@ -6,8 +6,9 @@ export default function CsvUploader() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  // FIX: Added Type for Event
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; // Optional chaining
     if (!file) return;
 
     setUploading(true);
@@ -15,21 +16,18 @@ export default function CsvUploader() {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target.result;
+      const text = event.target?.result;
+      if (typeof text !== 'string') return;
       
-      // Simple CSV Parser
-      // Assumes format: Name,Rating,Comment
       const rows = text.split('\n').slice(1); // Skip header
       
       const reviews = rows.map(row => {
-        // Split by comma, but handle potential issues simply for now
         const cols = row.split(',');
         if (cols.length < 3) return null; 
         
         return {
           user: cols[0]?.trim(),
           rating: cols[1]?.trim(),
-          // Join the rest in case the comment itself had commas
           text: cols.slice(2).join(',').trim().replace(/^"|"$/g, ''), 
           source: "CSV Import"
         };
@@ -51,7 +49,6 @@ export default function CsvUploader() {
         if (res.ok) {
           const data = await res.json();
           setMessage(`✅ ${data.message}`);
-          // Reload page to show new stats
           setTimeout(() => window.location.reload(), 1500);
         } else {
           setMessage("❌ Upload failed.");

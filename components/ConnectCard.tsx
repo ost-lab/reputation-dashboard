@@ -1,17 +1,23 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, Loader2, Link as LinkIcon, LogOut } from 'lucide-react';
-import PlatformIcon from './PlatformIcon'; // Re-use your icon logic
+import PlatformIcon from './PlatformIcon';
 
-export default function ConnectCard({ platform, label, color }) {
-  const storageKey = `${platform}_connected`; // Unique key for local storage
+// FIX: Define Props
+interface ConnectCardProps {
+  platform: string;
+  label: string;
+  color: string;
+}
+
+export default function ConnectCard({ platform, label, color }: ConnectCardProps) {
+  const storageKey = `${platform}_connected`; 
   
   const [isConnected, setIsConnected] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [inputUrl, setInputUrl] = useState('');
   const [status, setStatus] = useState('idle');
 
-  // 1. Load saved connection state on mount
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
@@ -22,23 +28,21 @@ export default function ConnectCard({ platform, label, color }) {
       setAccountName('');
       setInputUrl('');
     }
-  }, [platform]); // Re-run when switching platforms
+  }, [platform, storageKey]); 
 
-  // 2. CONNECT (Simulated Verification)
   const handleConnect = () => {
     if (!inputUrl) return alert("Please paste a link first.");
     
     setStatus('connecting');
     setTimeout(() => {
       setIsConnected(true);
-      const fakeName = `${label} Page`; // e.g. "Facebook Page"
+      const fakeName = `${label} Page`; 
       setAccountName(fakeName);
       localStorage.setItem(storageKey, fakeName);
       setStatus('idle');
     }, 1200);
   };
 
-  // 3. DISCONNECT
   const handleDisconnect = () => {
     if(!confirm("Disconnect this account?")) return;
     localStorage.removeItem(storageKey);
@@ -47,14 +51,13 @@ export default function ConnectCard({ platform, label, color }) {
     setInputUrl('');
   };
 
-  // 4. SYNC (Calls your API)
   const handleSync = async () => {
     setStatus('syncing');
     try {
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform }) // Send 'facebook', 'yelp', etc.
+        body: JSON.stringify({ platform: platform }) 
       });
 
       if (res.ok) {
@@ -67,9 +70,6 @@ export default function ConnectCard({ platform, label, color }) {
     }
   };
 
-  // --- RENDER ---
-
-  // SUCCESS STATE
   if (status === 'success') {
     return (
       <div className={`bg-green-50 p-6 rounded-lg shadow-sm border border-green-200 flex flex-col items-center justify-center text-center h-48`}>
@@ -82,7 +82,6 @@ export default function ConnectCard({ platform, label, color }) {
     );
   }
 
-  // DISCONNECTED STATE (Input Form)
   if (!isConnected) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-auto flex flex-col justify-center transition-all">
@@ -116,10 +115,8 @@ export default function ConnectCard({ platform, label, color }) {
     );
   }
 
-  // CONNECTED STATE (Sync Button)
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-blue-100 flex flex-col items-center justify-center text-center h-48 relative overflow-hidden">
-       {/* Status Badge */}
        <div className="absolute top-3 left-3 flex items-center gap-2">
          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
          <span className="text-[10px] font-bold text-gray-400">Live</span>

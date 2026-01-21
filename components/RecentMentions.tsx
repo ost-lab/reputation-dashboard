@@ -2,7 +2,7 @@
 
 import { MessageSquare, Star } from 'lucide-react';
 
-// FIX: Explicitly type the props
+// FIX: Define Props
 export default function RecentMentions({ data }: { data: any[] }) {
   
   const recent = data.slice(0, 5);

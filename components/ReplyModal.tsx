@@ -2,14 +2,19 @@
 import { useState, useEffect } from 'react';
 import { X, Send, Sparkles } from 'lucide-react';
 
-export default function ReplyModal({ review, onClose, onReplySaved }) {
+// FIX: Define Props
+interface ReplyModalProps {
+  review: any; // Using any for simplicity since DB structure varies, but usually: { id, user_name, text, admin_reply }
+  onClose: () => void;
+  onReplySaved: () => void;
+}
+
+export default function ReplyModal({ review, onClose, onReplySaved }: ReplyModalProps) {
   const [replyText, setReplyText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Load the AI suggestion (or existing reply) when modal opens
   useEffect(() => {
     if (review) {
-      // Use existing admin reply if available, otherwise use AI suggestion
       setReplyText(review.admin_reply || review.ai_reply || "");
     }
   }, [review]);
@@ -24,7 +29,7 @@ export default function ReplyModal({ review, onClose, onReplySaved }) {
       });
 
       if (res.ok) {
-        onReplySaved(); // Refresh the parent page
+        onReplySaved(); 
         onClose();
       }
     } catch (error) {
@@ -40,7 +45,6 @@ export default function ReplyModal({ review, onClose, onReplySaved }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col md:flex-row">
         
-        {/* LEFT: The Customer Review */}
         <div className="w-full md:w-1/3 bg-gray-50 p-6 border-r flex flex-col">
           <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">Replying to:</h3>
           <div className="flex items-center gap-3 mb-4">
@@ -57,7 +61,6 @@ export default function ReplyModal({ review, onClose, onReplySaved }) {
           </div>
         </div>
 
-        {/* RIGHT: Your Reply Action */}
         <div className="w-full md:w-2/3 p-6 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-bold text-lg text-gray-800 flex items-center gap-2">
