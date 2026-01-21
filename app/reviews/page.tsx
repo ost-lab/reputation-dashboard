@@ -7,14 +7,16 @@ import PlatformIcon from '../../components/PlatformIcon';
 import ReplyModal from '../../components/ReplyModal'; 
 import { Trash2, Search, Reply, CheckCircle } from 'lucide-react';
 
+// Define the shape of a Review based on your Database Schema
 interface Review {
   id: number;
-  user_name: string;
+  user_name: string; // Matches DB column
   source: string;
   rating: number;
   date: string;
   text: string;
-  admin_reply?: string;
+  admin_reply?: string; // Matches DB column
+  status?: string;
 }
 
 export default function ReviewsPage() {
@@ -28,25 +30,32 @@ export default function ReviewsPage() {
     fetchReviews();
   }, []);
 
-  // FIX: Load from LocalStorage instead of API
+  // 1. FETCH FROM API (Database)
   async function fetchReviews() {
     try {
-      const res = await fetch('/api/reviews'); // Calls our new SQL route
+      const res = await fetch('/api/reviews'); 
+      if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setReviews(data);
     } catch (error) {
-      console.error("Failed to fetch", error);
+      console.error("Failed to load reviews:", error);
     }
   }
 
+  // 2. DELETE VIA API
   const handleDelete = async (id: number) => {
-  if(!confirm("Are you sure?")) return;
-  
-  await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
-  
-  // Refresh data from DB
-  fetchReviews();
-};
+    if(!confirm("Are you sure you want to delete this review?")) return;
+    
+    try {
+      const res = await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        // Refresh data from DB to ensure UI is in sync
+        fetchReviews();
+      }
+    } catch (error) {
+      console.error("Delete failed:", error);
+    }
+  };
 
   const filteredReviews = reviews.filter(r => 
     (r.text || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -103,6 +112,7 @@ export default function ReviewsPage() {
                          </td>
                          <td className="p-4 align-top">
                             <p className="text-sm text-gray-600 line-clamp-3">{r.text}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">{new Date(r.date).toLocaleDateString()}</p>
                          </td>
                          <td className="p-4 align-top">
                             {r.admin_reply ? (
@@ -140,7 +150,9 @@ export default function ReviewsPage() {
                    ))}
                    {filteredReviews.length === 0 && (
                      <tr>
-                        <td colSpan={4} className="p-8 text-center text-gray-400">No reviews found.</td>
+                        <td colSpan={4} className="p-8 text-center text-gray-400">
+                            {reviews.length === 0 ? "Loading reviews from database..." : "No reviews match your search."}
+                        </td>
                      </tr>
                    )}
                 </tbody>
@@ -155,7 +167,7 @@ export default function ReviewsPage() {
           review={selectedReview} 
           onClose={() => setSelectedReview(null)} 
           onReplySaved={() => {
-             fetchReviews(); // Refresh table data
+             fetchReviews(); // Refresh table data from DB
              setSelectedReview(null);
           }} 
         />
