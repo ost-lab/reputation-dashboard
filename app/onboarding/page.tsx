@@ -7,11 +7,12 @@ import { Building2, Utensils, Stethoscope, Gavel, Home, ArrowRight, CheckCircle,
 export default function OnboardingPage() {
   const router = useRouter();
   
-  // FIX: Explicitly tell TypeScript this can be a number
+  // FIX 1: Explicitly tell TypeScript the step is a number
   const [step, setStep] = useState<number>(-1); 
   const [loading, setLoading] = useState(false);
   
-  // FIX: Explicitly tell TypeScript this can be a string OR null
+  // FIX 2: Explicitly tell TypeScript this can be a 'string' OR 'null'
+  // This prevents the "Argument of type string is not assignable to null" error
   const [accountType, setAccountType] = useState<string | null>(null); 
   const [businessName, setBusinessName] = useState('');
   
@@ -41,7 +42,7 @@ export default function OnboardingPage() {
     }
   }, []);
 
-  // FIX: Add type 'string' to parameter
+  // FIX 3: Add type 'string' to the function parameter
   const handleSelectType = (type: string) => {
     setAccountType(type);
     localStorage.setItem('account_type', type);
