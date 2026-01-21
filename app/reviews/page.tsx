@@ -28,7 +28,7 @@ export default function ReviewsPage() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if(!confirm("Are you sure?")) return;
     const res = await fetch(`/api/reviews?id=${id}`, { method: 'DELETE' });
     if (res.ok) setReviews(reviews.filter(r => r.id !== id));
