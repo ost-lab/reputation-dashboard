@@ -1,21 +1,32 @@
 "use client";
+
 import { useState } from 'react';
 import { X, Search, Plus, Check } from 'lucide-react';
 import { MASTER_PLATFORMS } from '../lib/platforms';
 
-export default function AddPlatformModal({ currentIds, onSave, onClose, onCustomAdded }) {
-  const [selectedIds, setSelectedIds] = useState(new Set(currentIds));
+// FIX: Define the Props Interface
+interface AddPlatformModalProps {
+  currentIds: string[];
+  onSave: (ids: string[]) => void;
+  onClose: () => void;
+  onCustomAdded?: () => void;
+}
+
+export default function AddPlatformModal({ currentIds, onSave, onClose, onCustomAdded }: AddPlatformModalProps) {
+  // FIX: Explicitly type the Set as containing strings
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(currentIds));
   const [search, setSearch] = useState('');
 
   // 1. Helper to get ALL known platforms (Master + Custom)
   const getKnownPlatforms = () => {
+    // We treat this as 'any' to avoid strict type issues with local storage data
     const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
     return [...MASTER_PLATFORMS, ...customDefs];
   };
 
   const knownPlatforms = getKnownPlatforms();
 
-  const togglePlatform = (id) => {
+  const togglePlatform = (id: string) => {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
@@ -23,7 +34,7 @@ export default function AddPlatformModal({ currentIds, onSave, onClose, onCustom
   };
 
   // Filter the combined list
-  const filteredList = knownPlatforms.filter(p => 
+  const filteredList = knownPlatforms.filter((p: any) => 
     p.label.toLowerCase().includes(search.toLowerCase()) || 
     (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
   );
@@ -34,7 +45,7 @@ export default function AddPlatformModal({ currentIds, onSave, onClose, onCustom
     const searchTerm = search.trim();
 
     // 1. CHECK: Does this already exist? (Case insensitive)
-    const existing = knownPlatforms.find(p => p.label.toLowerCase() === searchTerm.toLowerCase());
+    const existing = knownPlatforms.find((p: any) => p.label.toLowerCase() === searchTerm.toLowerCase());
 
     if (existing) {
        // A. It exists! Just select it.
@@ -98,7 +109,7 @@ export default function AddPlatformModal({ currentIds, onSave, onClose, onCustom
         <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
-            {filteredList.map((p) => {
+            {filteredList.map((p: any) => {
               const isSelected = selectedIds.has(p.id);
               return (
                 <button 
@@ -128,7 +139,7 @@ export default function AddPlatformModal({ currentIds, onSave, onClose, onCustom
             })}
 
             {/* ONLY SHOW "ADD" BUTTON IF NO EXACT MATCH FOUND */}
-            {search.length > 0 && !filteredList.some(p => p.label.toLowerCase() === search.toLowerCase()) && (
+            {search.length > 0 && !filteredList.some((p: any) => p.label.toLowerCase() === search.toLowerCase()) && (
                <button 
                  onClick={handleCreateCustom}
                  className="flex flex-col items-center justify-center p-4 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 hover:bg-blue-100 transition-all text-center gap-2"
