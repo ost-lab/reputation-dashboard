@@ -7,19 +7,17 @@ import { Check, CreditCard, Zap, Shield, Crown, Loader2 } from 'lucide-react';
 
 export default function BillingPage() {
   const [loading, setLoading] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState('free'); // 'free', 'pro', 'enterprise'
+  const [currentPlan, setCurrentPlan] = useState('free'); 
 
-  // 1. Load Current Plan
   useEffect(() => {
     const savedPlan = localStorage.getItem('user_plan');
     if (savedPlan) setCurrentPlan(savedPlan);
   }, []);
 
-  // 2. Handle Upgrade (Simulate Stripe Checkout)
-  const handleUpgrade = (planId) => {
+  // FIX: Added ': string' here
+  const handleUpgrade = (planId: string) => {
     setLoading(true);
     
-    // Simulate Network Request to Stripe
     setTimeout(() => {
       setCurrentPlan(planId);
       localStorage.setItem('user_plan', planId);
@@ -93,7 +91,7 @@ export default function BillingPage() {
                 </button>
              </div>
 
-             {/* PRO PLAN (Highlighted) */}
+             {/* PRO PLAN */}
              <div className={`bg-white p-8 rounded-xl border-2 relative shadow-xl transform scale-105 z-10 ${currentPlan === 'pro' ? 'border-purple-500 ring-1 ring-purple-500' : 'border-purple-100'}`}>
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-1 rounded-full text-xs font-bold shadow-sm">
                    MOST POPULAR
