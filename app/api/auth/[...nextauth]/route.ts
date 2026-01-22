@@ -1,11 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions, User, Account, Profile } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import pool from "@/lib/db";
 
-// FIX: Removed ': NextAuthOptions' so this works in a .js file
-export const authOptions = {
+// FIX: Export 'authOptions' properly with the correct type
+export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
@@ -43,16 +43,24 @@ export const authOptions = {
           throw new Error("Invalid password");
         }
 
-        return { id: user.id, name: user.name, email: user.email };
+        // Return the user object (mapped to NextAuth expected fields)
+        return { 
+          id: user.id.toString(), // NextAuth expects ID to be a string
+          name: user.name, 
+          email: user.email 
+        };
       }
     })
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    // FIX: Typed the arguments here
+    async signIn({ user, account }: { user: User; account: Account | null }) {
       if (account?.provider === "google") {
         try {
           const { email, name, image } = user;
           
+          if (!email) return false; // Ensure email exists
+
           // Check if user exists
           const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
           
@@ -69,11 +77,12 @@ export const authOptions = {
           return false;
         }
       }
-      return true;
+      return true; // Credentials login allows passage
     },
     
     async session({ session, token }) {
       if (session.user) {
+         // @ts-ignore
         session.user.id = token.sub; 
       }
       return session;
