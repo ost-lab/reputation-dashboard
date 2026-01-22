@@ -1,10 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import pool from "@/lib/db";
 
-const handler = NextAuth({
+// FIX: Export 'authOptions' separately so other API routes can use it
+export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
@@ -47,7 +48,6 @@ const handler = NextAuth({
     })
   ],
   callbacks: {
-    // This runs when a user logs in (Google OR Credentials)
     async signIn({ user, account }) {
       if (account?.provider === "google") {
         try {
@@ -69,17 +69,19 @@ const handler = NextAuth({
           return false;
         }
       }
-      return true; // Credentials login allows passage
+      return true;
     },
     
     async session({ session, token }) {
       if (session.user) {
          // @ts-ignore
-        session.user.id = token.sub; // Add ID to session
+        session.user.id = token.sub; 
       }
       return session;
     }
   }
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
