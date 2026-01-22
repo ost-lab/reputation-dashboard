@@ -1,11 +1,11 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import pool from "@/lib/db";
 
-// FIX: Export 'authOptions' separately so other API routes can use it
-export const authOptions: NextAuthOptions = {
+// FIX: Removed ': NextAuthOptions' so this works in a .js file
+export const authOptions = {
   session: {
     strategy: 'jwt',
   },
@@ -74,7 +74,6 @@ export const authOptions: NextAuthOptions = {
     
     async session({ session, token }) {
       if (session.user) {
-         // @ts-ignore
         session.user.id = token.sub; 
       }
       return session;
