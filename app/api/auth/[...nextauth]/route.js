@@ -1,38 +1,85 @@
 import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { compare } from "bcryptjs";
+import pool from "@/lib/db";
 
-// 1. Define the options in a separate variable and EXPORT it
-export const authOptions = {
+const handler = NextAuth({
+  session: {
+    strategy: 'jwt',
+  },
   providers: [
+    // 1. Google Provider
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      authorization: {
-        params: {
-          scope: "openid email profile https://www.googleapis.com/auth/business.manage",
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code"
-        }
-      }
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
+    
+    // 2. Email/Password Provider
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Invalid credentials");
+        }
+
+        // Find user in DB
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [credentials.email]);
+        const user = result.rows[0];
+
+        if (!user || !user.password) {
+          throw new Error("User not found or using Google login");
+        }
+
+        // Verify Password
+        const isValid = await compare(credentials.password, user.password);
+        
+        if (!isValid) {
+          throw new Error("Invalid password");
+        }
+
+        return { id: user.id, name: user.name, email: user.email };
+      }
+    })
   ],
   callbacks: {
-    async session({ session, token }) {
-      session.accessToken = token.accessToken;
-      return session;
-    },
-    async jwt({ token, account }) {
-      if (account) {
-        token.accessToken = account.access_token;
+    // This runs when a user logs in (Google OR Credentials)
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        try {
+          const { email, name, image } = user;
+          
+          // Check if user exists
+          const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+          
+          if (userCheck.rows.length === 0) {
+            // Create new Google user in our DB
+            await pool.query(
+              "INSERT INTO users (name, email, image, provider) VALUES ($1, $2, $3, 'google')",
+              [name, email, image]
+            );
+          }
+          return true;
+        } catch (error) {
+          console.error("Google Login Error:", error);
+          return false;
+        }
       }
-      return token;
+      return true; // Credentials login allows passage
     },
-  },
-  secret: process.env.NEXTAUTH_SECRET,
-};
-
-// 2. Pass the options to NextAuth
-const handler = NextAuth(authOptions);
+    
+    async session({ session, token }) {
+      if (session.user) {
+         // @ts-ignore
+        session.user.id = token.sub; // Add ID to session
+      }
+      return session;
+    }
+  }
+});
 
 export { handler as GET, handler as POST };
