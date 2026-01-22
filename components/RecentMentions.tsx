@@ -2,9 +2,9 @@
 
 import { MessageSquare, Star } from 'lucide-react';
 
-// FIX: Define Props
 export default function RecentMentions({ data }: { data: any[] }) {
   
+  // Take the first 5 items
   const recent = data.slice(0, 5);
 
   return (
@@ -17,9 +17,17 @@ export default function RecentMentions({ data }: { data: any[] }) {
         {recent.map((review, i) => (
           <div key={i} className="pb-4 border-b border-gray-100 last:border-0 last:pb-0">
              <div className="flex justify-between items-start mb-1">
-                <span className="font-bold text-sm text-gray-700">{review.author || "Anonymous"}</span>
-                <span className="text-[10px] text-gray-400">{review.date || "Just now"}</span>
+                {/* FIX 1: Use 'user_name' instead of 'author' */}
+                <span className="font-bold text-sm text-gray-700">
+                    {review.user_name || "Anonymous"}
+                </span>
+                
+                {/* FIX 2: Format the date nicely */}
+                <span className="text-[10px] text-gray-400">
+                    {review.date ? new Date(review.date).toLocaleDateString() : "Just now"}
+                </span>
              </div>
+             
              <div className="flex text-yellow-400 mb-1">
                 {[...Array(5)].map((_, idx) => (
                    <Star key={idx} size={10} fill={idx < (review.rating || 0) ? "currentColor" : "none"} className={idx < (review.rating || 0) ? "" : "text-gray-200"} />
