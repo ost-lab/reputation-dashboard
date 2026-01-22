@@ -13,7 +13,8 @@ export async function GET() {
 }
 
 // 2. ADD A REVIEW (POST)
-export async function POST(req) {
+// FIX: Added ': Request' type annotation
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { user_name, rating, text, source } = body;
@@ -25,11 +26,13 @@ export async function POST(req) {
 
     return NextResponse.json(result.rows[0]);
   } catch (error) {
+    console.error('Database Error:', error);
     return NextResponse.json({ error: 'Failed to save review' }, { status: 500 });
   }
 }
 
 // 3. UPDATE / REPLY (PATCH)
+// FIX: Added ': Request' type annotation
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
@@ -47,6 +50,7 @@ export async function PATCH(req: Request) {
 }
 
 // 4. DELETE (DELETE)
+// FIX: Added ': Request' type annotation
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
