@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 // 2. ADD A REVIEW (POST)
-export async function POST(req: Request) {
+export async function POST(req) {
   try {
     const body = await req.json();
     const { user_name, rating, text, source } = body;
