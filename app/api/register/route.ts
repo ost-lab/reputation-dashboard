@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import pool from '@/lib/db';
 import { sendVerificationEmail } from '@/lib/email'; 
-import { RegisterSchema } from '@/lib/schemas'; // Import Zod Schema
-import { z } from 'zod';
+import { RegisterSchema } from '@/lib/schemas'; 
+import { ZodError } from 'zod'; // ✅ FIX 1: Import ZodError directly
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
     // 1. 🛡️ REAL WORLD SECURITY: Validate Inputs with Zod
-    // If validation fails, this line will throw a detailed error automatically
     const validData = RegisterSchema.parse(body);
 
     const { name, email, password, accountType, businessType, platforms } = validData;
@@ -18,11 +17,11 @@ export async function POST(req: Request) {
     // 2. Check if User Exists
     const userCheck = await pool.query('SELECT 1 FROM users WHERE email = $1', [email]);
     if (userCheck.rows.length > 0) {
-      return NextResponse.json({ error: "User already exists" }, { status: 409 }); // 409 Conflict
+      return NextResponse.json({ error: "User already exists" }, { status: 409 }); 
     }
 
-    // 3. Hash Password (bcryptjs is good, ensure salt rounds is 10-12)
-    const hashedPassword = await hash(password, 12); // Increased cost to 12 for better security
+    // 3. Hash Password
+    const hashedPassword = await hash(password, 12); 
 
     // 4. Prepare Data
     const typeToSave = accountType === 'business' ? 'business' : 'personal';
@@ -53,8 +52,9 @@ export async function POST(req: Request) {
 
   } catch (error) {
     // 🛡️ Secure Error Handling
-    if (error instanceof z.ZodError) {
-      // Return specific validation errors (e.g. "Password too short")
+    // ✅ FIX 2: Use the imported class
+    if (error instanceof ZodError) {
+      // ✅ FIX 3: Now TypeScript knows 'errors' exists
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
     
