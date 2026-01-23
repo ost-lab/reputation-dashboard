@@ -192,6 +192,9 @@ export default function AuthPage() {
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
               <input 
+                id="email" // ✅ Added for Autofill
+                name="email" // ✅ Added for Autofill
+                autoComplete="email" // ✅ Added for Autofill
                 type="email" required 
                 className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 value={form.email}
@@ -204,6 +207,9 @@ export default function AuthPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
                 <input
+                  id="password" // ✅ Added for Autofill
+                  name="password" // ✅ Added for Autofill
+                  autoComplete="current-password" // ✅ Added for Autofill
                   type={showPassword ? "text" : "password"} 
                   required
                   className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-black pr-10"

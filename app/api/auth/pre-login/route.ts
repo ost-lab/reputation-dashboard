@@ -7,21 +7,29 @@ export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
 
+    console.log("--- PRE-LOGIN ATTEMPT ---");
+    console.log("Email:", email);
+
     // 1. Find User
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
 
     if (!user || !user.password) {
+      console.log("❌ User not found or has no password.");
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
     }
 
     // 2. Validate Password
     const isValid = await compare(password, user.password);
+    console.log("✅ User Found:", user.email);
+    console.log("🔍 Password Match Result:", isValid);
     if (!isValid) {
+        console.log("❌ Password Mismatch");
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
     }
 
     // 3. Password is Correct! Now Generate & Send OTP.
+    console.log("🎉 Password Correct. Sending OTP...");
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
