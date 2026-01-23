@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation'; 
 import { Bell, Search, User, Building2, LogOut, Settings } from 'lucide-react';
+import { useSession, signOut } from "next-auth/react"; // ✅ Import signOut
 
 export default function Header() {
   const router = useRouter();
@@ -9,9 +10,11 @@ export default function Header() {
   const [accountType, setAccountType] = useState('business');
   const [isPro, setIsPro] = useState(false);
   
+  const { data: session } = useSession();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
+    // Keep your existing local storage logic for UI preferences if you want
     const type = localStorage.getItem('account_type');
     if (type) setAccountType(type);
 
@@ -25,12 +28,22 @@ export default function Header() {
     if (plan === 'pro' || plan === 'enterprise') setIsPro(true);
   }, []);
 
-  const handleLogout = () => {
+  // ✅ FIXED LOGOUT FUNCTION
+  const handleLogout = async () => {
     if (confirm("Are you sure you want to log out?")) {
-      localStorage.removeItem('auth_token');
-      router.push('/login');
+      // 1. Optional: Clear your custom local storage items
+      localStorage.removeItem('auth_token'); 
+      localStorage.removeItem('account_type'); // Optional cleanup
+      
+      // 2. REQUIRED: Call signOut to clear Cookies and Session
+      await signOut({ callbackUrl: '/login' });
     }
   };
+
+  // Helper to format the account type
+  const accountLabel = session?.user?.accountType 
+    ? `${session.user.accountType} ACCOUNT`.toUpperCase() 
+    : "LOADING...";
 
   return (
     <header className="h-16 bg-white border-b flex items-center justify-between px-8 ml-16 md:ml-20 sticky top-0 z-40">
@@ -42,7 +55,7 @@ export default function Header() {
         </div>
         <div>
            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-lg text-gray-800 leading-tight">{displayName}</h2>
+              <h2 className="font-bold text-lg text-gray-800 leading-tight">{session?.user?.name || displayName}</h2>
               {isPro && (
                 <span className="bg-purple-100 text-purple-600 text-[10px] px-1.5 py-0.5 rounded font-bold border border-purple-200">
                   PRO
@@ -50,7 +63,7 @@ export default function Header() {
               )}
            </div>
            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-             {accountType === 'business' ? 'Business Account' : 'Personal Brand'}
+             {accountLabel}
            </p>
         </div>
       </div>
@@ -75,7 +88,7 @@ export default function Header() {
             className="flex items-center gap-2 focus:outline-none"
           >
             <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md border-2 border-white cursor-pointer hover:shadow-lg transition-all">
-              {displayName.charAt(0)}
+              {session?.user?.name ? session.user.name.charAt(0).toUpperCase() : displayName.charAt(0)}
             </div>
           </button>
 
@@ -86,7 +99,7 @@ export default function Header() {
               <div className="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-20 animate-in fade-in slide-in-from-top-2 duration-200">
                  <div className="px-4 py-3 border-b bg-gray-50">
                     <p className="text-xs font-bold text-gray-500 uppercase">My Account</p>
-                    <p className="text-sm font-bold text-gray-800 truncate">{displayName}</p>
+                    <p className="text-sm font-bold text-gray-800 truncate">{session?.user?.name || displayName}</p>
                  </div>
 
                  <div className="p-1">

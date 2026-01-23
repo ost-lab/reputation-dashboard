@@ -1,8 +1,8 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowLeft, User, Building2, Check } from 'lucide-react';
 
 // Debug Component
 function DebugSession() {
@@ -16,19 +16,57 @@ function DebugSession() {
   );
 }
 
+// ✅ DEFINING PLATFORMS PER INDUSTRY
+const PLATFORM_MAPPING: Record<string, string[]> = {
+  "Restaurant":   ['Google', 'Yelp', 'TripAdvisor', 'Facebook', 'OpenTable'],
+  "Retail":       ['Google', 'Facebook', 'Instagram', 'Yelp', 'Amazon'],
+  "Service":      ['Google', 'Yelp', 'Facebook', 'LinkedIn', 'Angi'],
+  "Hotel":        ['Google', 'TripAdvisor', 'Booking.com', 'Expedia', 'Facebook'],
+  "Healthcare":   ['Google', 'Healthgrades', 'Vitals', 'Facebook', 'Zocdoc'],
+  "Tech":         ['G2', 'Capterra', 'LinkedIn', 'Google', 'Trustpilot'],
+  "RealEstate":   ['Google', 'Zillow', 'Realtor.com', 'Facebook', 'LinkedIn'],
+  "Automotive":   ['Google', 'Yelp', 'Cars.com', 'Facebook', 'Edmunds'],
+  "Education":    ['Google', 'Facebook', 'GreatSchools', 'LinkedIn'],
+  "Entertainment":['Google', 'Yelp', 'TripAdvisor', 'Facebook', 'Ticketmaster'],
+  "Beauty":       ['Google', 'Yelp', 'Facebook', 'Instagram', 'Fresha'],
+  "Finance":      ['Google', 'LinkedIn', 'Facebook', 'Yelp', 'BBB'],
+  "Construction": ['Google', 'Angi', 'Houzz', 'Facebook', 'Yelp'],
+  "Other":        ['Google', 'Yelp', 'Facebook', 'LinkedIn', 'Trustpilot']
+};
+
 export default function AuthPage() {
   const router = useRouter();
   
   // UI States
   const [isLogin, setIsLogin] = useState(true);
-  const [showVerify, setShowVerify] = useState(false); // Controls the OTP Popup
+  const [showVerify, setShowVerify] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
   // Data States
+  const [accountType, setAccountType] = useState<'personal' | 'business'>('personal');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [otp, setOtp] = useState(""); 
   const [error, setError] = useState('');
+
+  // === NEW STATES FOR BUSINESS ===
+  const [businessType, setBusinessType] = useState("Restaurant");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+  // ✅ Auto-select relevant platforms when changing business type (Optional UX improvement)
+  // When business type changes, we reset the selection so the user starts fresh with relevant options.
+  useEffect(() => {
+    setSelectedPlatforms([]);
+  }, [businessType]);
+
+  // Toggle Logic for Platforms
+  const togglePlatform = (platform: string) => {
+    setSelectedPlatforms(prev => 
+      prev.includes(platform) 
+        ? prev.filter(p => p !== platform) 
+        : [...prev, platform]
+    );
+  };
 
   // 1. HANDLE SIGNUP
   const handleSignup = async (e: React.FormEvent) => {
@@ -37,16 +75,22 @@ export default function AuthPage() {
     setError('');
 
     try {
+      const payload = { 
+        ...form, 
+        accountType,
+        businessType: accountType === 'business' ? businessType : undefined,
+        platforms: accountType === 'business' ? selectedPlatforms : undefined,
+      };
+
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
 
-      // Success! Move to verification step
       setShowVerify(true); 
 
     } catch (err: any) {
@@ -56,15 +100,13 @@ export default function AuthPage() {
     }
   };
 
-  // 2. HANDLE LOGIN (Step 1: Check Password)
+  // 2. HANDLE LOGIN
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // ✅ We DO NOT call signIn() here anymore. 
-      // We call our custom pre-login API to check the password first.
       const res = await fetch('/api/auth/pre-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,11 +116,9 @@ export default function AuthPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // If this fails, the password is wrong.
         throw new Error(data.message || "Invalid email or password");
       }
 
-      // ✅ Success: Password is correct. Code sent. Show Popup.
       setShowVerify(true);
       alert(`Verification code sent to ${form.email}`);
 
@@ -89,17 +129,16 @@ export default function AuthPage() {
     }
   };
 
-  // 3. HANDLE VERIFY (Step 2: Check Code & Create Session)
+  // 3. HANDLE VERIFY
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // ✅ call NextAuth with the CODE
     const res = await signIn('credentials', {
       redirect: false,
       email: form.email,
-      code: otp, // Sending OTP, NOT password
+      code: otp,
     });
 
     if (res?.error) {
@@ -111,11 +150,14 @@ export default function AuthPage() {
     }
   };
 
+  // Helper to get current options based on selection
+  const currentPlatformOptions = PLATFORM_MAPPING[businessType] || PLATFORM_MAPPING['Other'];
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <DebugSession />
 
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md relative">
+      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md relative my-10">
         
         {/* === HEADER === */}
         <div className="text-center mb-6">
@@ -129,7 +171,6 @@ export default function AuthPage() {
           </p>
         </div>
 
-        {/* === ERROR MESSAGE === */}
         {error && (
           <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4 text-center">
             {error}
@@ -175,16 +216,97 @@ export default function AuthPage() {
         /* ================================== */
           <form onSubmit={isLogin ? handleLogin : handleSignup} className="space-y-4">
             
-            {/* NAME Field (Signup Only) */}
+            {/* === ACCOUNT TYPE TOGGLE (Signup Only) === */}
+            {!isLogin && (
+              <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg mb-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountType('personal')}
+                  className={`flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-md transition-all ${
+                    accountType === 'personal'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <User size={14} />
+                  Personal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType('business')}
+                  className={`flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-md transition-all ${
+                    accountType === 'business'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Building2 size={14} />
+                  Business
+                </button>
+              </div>
+            )}
+
+            {/* NAME Field */}
             {!isLogin && (
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase">Full Name</label>
+                <label className="text-xs font-bold text-gray-500 uppercase">
+                  {accountType === 'personal' ? 'Full Name' : 'Company Name'}
+                </label>
                 <input 
                   type="text" required 
                   className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder={accountType === 'personal' ? "John Doe" : "Acme Corp"}
                   value={form.name}
                   onChange={e => setForm({...form, name: e.target.value})}
                 />
+              </div>
+            )}
+
+            {/* === BUSINESS FIELDS (Only show if Business Selected) === */}
+            {!isLogin && accountType === 'business' && (
+              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
+                
+                {/* Business Type Dropdown */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Business Type</label>
+                  <select 
+                    className="w-full border rounded-lg p-2 text-sm bg-white"
+                    value={businessType}
+                    onChange={(e) => setBusinessType(e.target.value)}
+                  >
+                    {/* Render options from the keys of our mapping */}
+                    {Object.keys(PLATFORM_MAPPING).map((type) => (
+                      <option key={type} value={type}>
+                        {/* Add spaces nicely: "RealEstate" -> "Real Estate" */}
+                        {type.replace(/([A-Z])/g, ' $1').trim()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dynamic Platform Selection */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">
+                    Connect Platforms for {businessType.replace(/([A-Z])/g, ' $1').trim()}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {currentPlatformOptions.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => togglePlatform(p)}
+                        className={`text-xs py-2 px-3 rounded border flex items-center justify-between transition-all ${
+                          selectedPlatforms.includes(p)
+                            ? 'bg-blue-50 border-blue-500 text-blue-700 font-bold'
+                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {p}
+                        {selectedPlatforms.includes(p) && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
             
@@ -192,9 +314,9 @@ export default function AuthPage() {
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase">Email Address</label>
               <input 
-                id="email" // ✅ Added for Autofill
-                name="email" // ✅ Added for Autofill
-                autoComplete="email" // ✅ Added for Autofill
+                id="email" 
+                name="email"
+                autoComplete="email"
                 type="email" required 
                 className="w-full border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 value={form.email}
@@ -207,9 +329,9 @@ export default function AuthPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
                 <input
-                  id="password" // ✅ Added for Autofill
-                  name="password" // ✅ Added for Autofill
-                  autoComplete="current-password" // ✅ Added for Autofill
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
                   type={showPassword ? "text" : "password"} 
                   required
                   className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-black pr-10"
@@ -233,7 +355,7 @@ export default function AuthPage() {
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all flex justify-center items-center gap-2"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              {isLogin ? 'Sign In' : 'Sign Up'}
+              {isLogin ? 'Sign In' : (accountType === 'business' ? 'Sign Up as Business' : 'Sign Up as Individual')}
             </button>
             
             {isLogin && (
@@ -267,7 +389,7 @@ export default function AuthPage() {
               <button 
                 onClick={() => {
                   setIsLogin(!isLogin);
-                  setError(""); // Clear errors when switching
+                  setError(""); 
                 }} 
                 className="text-blue-600 font-bold hover:underline"
               >
