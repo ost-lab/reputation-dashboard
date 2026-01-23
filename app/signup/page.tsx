@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Building2, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [accountType, setAccountType] = useState('business');
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
 
@@ -146,19 +148,35 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 text-gray-400" size={18} />
-                <input 
-                  type="password" 
-                  required
-                  className="w-full border border-gray-200 rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                />
+            {/* Password Field */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={data.password} // Adjust 'data.password' to match your state
+                    onChange={(e) => setData({ ...data, password: e.target.value })}
+                    required
+                    className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-black pr-10"
+                    placeholder="Create a password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </div>
-            </div>
+
+              <div className="relative">
+                <input type={showConfirm ? "text" : "password"} />
+                <button onClick={() => setShowConfirm(!showConfirm)} >
+                  {showConfirm ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
 
             <button 
               type="submit"

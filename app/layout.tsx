@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+// 1. IMPORT THE PROVIDER
+import { Providers } from "./providers"; 
 
-// Metadata is optional but good practice
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "Reputation Manager",
-  description: "Manage your business reputation",
+  title: "Reputation Dashboard",
+  description: "Manage your reviews",
 };
 
-// FIX: Added type definition for 'children'
 export default function RootLayout({
   children,
 }: {
@@ -15,7 +18,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={inter.className}>
+        {/* 2. WRAP THE CHILDREN IN PROVIDERS */}
+        <Providers>
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }

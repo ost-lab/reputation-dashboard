@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'; 
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react'; // FIX: Import NextAuth hook
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import StatCard from '../components/StatCard';
@@ -13,12 +14,13 @@ import PlatformSelector from '../components/PlatformSelector';
 import AddPlatformModal from '../components/AddPlatformModal';
 import ConnectCard from '../components/ConnectCard';
 import { MASTER_PLATFORMS } from '../lib/platforms';
-import { MessageCircle, ThumbsUp, Star, AlertCircle, Phone } from 'lucide-react';
+import { MessageCircle, ThumbsUp, Star, AlertCircle, Phone, Loader2 } from 'lucide-react'; // FIX: Added Loader2
 
 export default function Dashboard() {
   const router = useRouter();
+  // FIX: Use NextAuth session instead of localStorage
+  const { data: session, status } = useSession();
   
-  // FIX: Explicitly type state variables
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -28,25 +30,29 @@ export default function Dashboard() {
   
   const [allPlatforms, setAllPlatforms] = useState<any[]>(MASTER_PLATFORMS);
 
-  // 1. Auth Check
+  // 1. Auth Check (THE FIX)
+  // This prevents the "Race Condition" redirect loop
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
+    if (status === 'loading') return; // Do nothing while loading
+    if (status === 'unauthenticated') {
       router.push('/login'); 
     }
-  }, [router]);
+  }, [status, router]);
 
   // 2. Refresh Definitions
   const refreshPlatformDefinitions = () => {
-    const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
-    if (customDefs.length > 0) {
-      setAllPlatforms([...MASTER_PLATFORMS, ...customDefs]);
-    } else {
-      setAllPlatforms(MASTER_PLATFORMS);
+    // Check if window exists to prevent server-side errors
+    if (typeof window !== 'undefined') {
+      const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
+      if (customDefs.length > 0) {
+        setAllPlatforms([...MASTER_PLATFORMS, ...customDefs]);
+      } else {
+        setAllPlatforms(MASTER_PLATFORMS);
+      }
     }
   };
 
-  // 3. Load on Mount
+  // 3. Load Settings on Mount
   useEffect(() => {
     refreshPlatformDefinitions();
 
@@ -63,7 +69,7 @@ export default function Dashboard() {
        else if (industry === 'realestate') defaultPlatforms.push('zillow', 'realtor');
        else if (industry === 'other') defaultPlatforms.push('custom'); 
        
-       if (!industry) defaultPlatforms = ['instagram', 'twitter', 'linkedin']; // Personal defaults
+       if (!industry) defaultPlatforms = ['instagram', 'twitter', 'linkedin']; 
 
        setActivePlatformIds(defaultPlatforms);
     }
@@ -73,36 +79,52 @@ export default function Dashboard() {
   }, []);
 
   // 4. Handlers
-  // FIX: Added type 'string[]'
   const handleSavePlatforms = (newIds: string[]) => {
     setActivePlatformIds(newIds);
     localStorage.setItem('my_active_platforms', JSON.stringify(newIds));
   };
 
-  // FIX: Added type 'string'
   const handlePlatformChange = (id: string) => {
     setSelectedPlatform(id);
     localStorage.setItem('current_view_platform', id);
   };
 
-  // 5. Fetch Data
+  // 5. Fetch Data (Only when Authenticated)
   useEffect(() => {
-    async function fetchReviews() {
-      try {
-        const res = await fetch('/api/reviews');
-        if (res.ok) {
-           const data = await res.json();
-           setReviews(data);
+    if (status === 'authenticated') {
+      async function fetchReviews() {
+        try {
+          const res = await fetch('/api/reviews');
+          if (res.ok) {
+             const data = await res.json();
+             setReviews(data);
+          }
+        } catch (error) {
+          console.error("Failed to load reviews", error);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to load reviews", error);
-      } finally {
-        setLoading(false);
       }
+      fetchReviews();
     }
-    fetchReviews();
-  }, []);
+  }, [status]); // Depend on status
 
+  // 6. Loading Screen (Prevents Flashing)
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">Loading Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Safety check: Don't render dashboard if session failed
+  if (!session) return null;
+
+  // --- EXISTING DATA LOGIC ---
   const filteredReviews = selectedPlatform === 'all' 
     ? reviews 
     : reviews.filter(r => (r.source || "").toLowerCase().includes(selectedPlatform.replace('custom-', ''))); 
