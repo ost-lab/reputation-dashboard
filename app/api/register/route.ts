@@ -51,11 +51,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Account created" });
 
   } catch (error) {
-    // 🛡️ Secure Error Handling
-    // ✅ FIX 2: Use the imported class
+   // ✅ FIX: Use 'issues' instead of 'errors'
     if (error instanceof ZodError) {
-      // ✅ FIX 3: Now TypeScript knows 'errors' exists
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
     
     console.error("Registration Error:", error);

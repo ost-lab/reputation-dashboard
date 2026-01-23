@@ -63,11 +63,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "OTP Sent" });
 
   } catch (error) {
-    // ✅ FIX 2: Use the imported class for the check
+  // ✅ FIX: Use 'issues' instead of 'errors'
     if (error instanceof ZodError) {
-      // ✅ FIX 3: Safely access the errors array
-      return NextResponse.json({ message: error.errors[0].message }, { status: 400 });
+      return NextResponse.json({ message: error.issues[0].message }, { status: 400 });
     }
+    
     console.error("Pre-Login Error:", error);
     return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
   }
