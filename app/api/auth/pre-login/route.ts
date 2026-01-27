@@ -3,7 +3,7 @@ import { compare } from "bcryptjs";
 import pool from "@/lib/db";
 import { sendVerificationEmail } from "@/lib/email";
 import { LoginSchema } from "@/lib/schemas";
-import { ZodError } from "zod"; // ✅ FIX 1: Import ZodError directly
+import { ZodError } from "zod";
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +20,8 @@ export async function POST(req: Request) {
       [ip]
     );
     
-    if (limitCheck.rows.length > 0) {
+    // 🚨 FIX 1: Comment out this entire block to IGNORE the current block
+    /* if (limitCheck.rows.length > 0) {
       const { attempts, blocked_until } = limitCheck.rows[0];
       
       if (blocked_until && new Date() < new Date(blocked_until)) {
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
          );
       }
     }
+    */
 
     // 3. Find User
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -51,6 +53,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Success
+    // Clear failed attempts on success
     await pool.query("DELETE FROM login_attempts WHERE ip_address = $1", [ip]);
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -63,7 +66,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "OTP Sent" });
 
   } catch (error) {
-  // ✅ FIX: Use 'issues' instead of 'errors'
     if (error instanceof ZodError) {
       return NextResponse.json({ message: error.issues[0].message }, { status: 400 });
     }
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
 
 // Helper to track failed attempts
 async function registerFailedAttempt(ip: string) {
+  // 🚨 FIX 2: Changed '15 minutes' to '1 second' so you never get stuck again
   await pool.query(`
     INSERT INTO login_attempts (ip_address, attempts, blocked_until)
     VALUES ($1, 1, NULL)
@@ -82,7 +85,7 @@ async function registerFailedAttempt(ip: string) {
     DO UPDATE SET 
       attempts = login_attempts.attempts + 1,
       blocked_until = CASE 
-        WHEN login_attempts.attempts >= 4 THEN NOW() + INTERVAL '15 minutes'
+        WHEN login_attempts.attempts >= 4 THEN NOW() + INTERVAL '1 second' 
         ELSE NULL
       END
   `, [ip]);

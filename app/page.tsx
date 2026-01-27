@@ -1,209 +1,109 @@
-"use client"; 
+"use client";
 
-import { useState, useEffect } from 'react'; 
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react'; // FIX: Import NextAuth hook
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
-import StatCard from '../components/StatCard';
-import SentimentChart from '../components/SentimentChart';
-import RecentMentions from '../components/RecentMentions';
-import AddReviewModal from '../components/AddReviewModal';
-import SLAChart from '../components/SLAChart';
-import PlatformSelector from '../components/PlatformSelector';
-import AddPlatformModal from '../components/AddPlatformModal';
-import ConnectCard from '../components/ConnectCard';
-import { MASTER_PLATFORMS } from '../lib/platforms';
-import { MessageCircle, ThumbsUp, Star, AlertCircle, Phone, Loader2 } from 'lucide-react'; // FIX: Added Loader2
+import { useEffect } from 'react';
+import { ArrowRight, Star, Shield, Zap } from 'lucide-react';
 
-export default function Dashboard() {
+export default function LandingPage() {
+  const { status } = useSession();
   const router = useRouter();
-  // FIX: Use NextAuth session instead of localStorage
-  const { data: session, status } = useSession();
-  
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('all'); 
-  const [activePlatformIds, setActivePlatformIds] = useState<string[]>(['google', 'facebook', 'yelp']);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
-  const [allPlatforms, setAllPlatforms] = useState<any[]>(MASTER_PLATFORMS);
 
-  // 1. Auth Check (THE FIX)
-  // This prevents the "Race Condition" redirect loop
+  // 🔄 Auto-Redirect: If user is already logged in, go to Dashboard
   useEffect(() => {
-    if (status === 'loading') return; // Do nothing while loading
-    if (status === 'unauthenticated') {
-      router.push('/login'); 
+    if (status === 'authenticated') {
+      router.push('/dashboard');
     }
   }, [status, router]);
 
-  // 2. Refresh Definitions
-  const refreshPlatformDefinitions = () => {
-    // Check if window exists to prevent server-side errors
-    if (typeof window !== 'undefined') {
-      const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
-      if (customDefs.length > 0) {
-        setAllPlatforms([...MASTER_PLATFORMS, ...customDefs]);
-      } else {
-        setAllPlatforms(MASTER_PLATFORMS);
-      }
-    }
-  };
-
-  // 3. Load Settings on Mount
-  useEffect(() => {
-    refreshPlatformDefinitions();
-
-    const savedActive = localStorage.getItem('my_active_platforms');
-    if (savedActive) {
-      setActivePlatformIds(JSON.parse(savedActive));
-    } else {
-       const settings = JSON.parse(localStorage.getItem('app_settings') || '{}');
-       const industry = settings.industry;
-
-       let defaultPlatforms = ['google', 'facebook']; 
-       if (industry === 'food') defaultPlatforms.push('yelp', 'tripadvisor');
-       else if (industry === 'health') defaultPlatforms.push('healthgrades', 'vitals');
-       else if (industry === 'realestate') defaultPlatforms.push('zillow', 'realtor');
-       else if (industry === 'other') defaultPlatforms.push('custom'); 
-       
-       if (!industry) defaultPlatforms = ['instagram', 'twitter', 'linkedin']; 
-
-       setActivePlatformIds(defaultPlatforms);
-    }
-
-    const savedSelection = localStorage.getItem('current_view_platform');
-    if (savedSelection) setSelectedPlatform(savedSelection);
-  }, []);
-
-  // 4. Handlers
-  const handleSavePlatforms = (newIds: string[]) => {
-    setActivePlatformIds(newIds);
-    localStorage.setItem('my_active_platforms', JSON.stringify(newIds));
-  };
-
-  const handlePlatformChange = (id: string) => {
-    setSelectedPlatform(id);
-    localStorage.setItem('current_view_platform', id);
-  };
-
-  // 5. Fetch Data (Only when Authenticated)
-  useEffect(() => {
-    if (status === 'authenticated') {
-      async function fetchReviews() {
-        try {
-          const res = await fetch('/api/reviews');
-          if (res.ok) {
-             const data = await res.json();
-             setReviews(data);
-          }
-        } catch (error) {
-          console.error("Failed to load reviews", error);
-        } finally {
-          setLoading(false);
-        }
-      }
-      fetchReviews();
-    }
-  }, [status]); // Depend on status
-
-  // 6. Loading Screen (Prevents Flashing)
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" />
-          <p className="text-gray-500 text-sm">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Safety check: Don't render dashboard if session failed
-  if (!session) return null;
-
-  // --- EXISTING DATA LOGIC ---
-  const filteredReviews = selectedPlatform === 'all' 
-    ? reviews 
-    : reviews.filter(r => (r.source || "").toLowerCase().includes(selectedPlatform.replace('custom-', ''))); 
-
-  const totalReviews = filteredReviews.length;
-  const avgRating = totalReviews > 0 ? (filteredReviews.reduce((acc, r) => acc + (parseFloat(r.rating) || 0), 0) / totalReviews).toFixed(1) : "0.0";
-  const sentimentCounts = filteredReviews.reduce((acc, r) => {
-    const s = (r.sentiment || 'neutral').toLowerCase().trim();
-    let key = 'neutral';
-    if (s.includes('positive')) key = 'positive';
-    else if (s.includes('negative')) key = 'negative';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, { positive: 0, neutral: 0, negative: 0 });
-
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans">
-      <Sidebar />
-      <div className="flex-1">
-        <Header />
-        <main className="p-8 ml-16 md:ml-20">
-          <div className="flex justify-between items-center mb-6">
-             <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-             <AddReviewModal onReviewAdded={() => window.location.reload()} />
-          </div>
+    <div className="min-h-screen bg-white font-sans text-gray-900">
+      
+      {/* NAVBAR */}
+      <nav className="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+        <div className="text-2xl font-bold text-blue-600 flex items-center gap-2">
+          <Star className="fill-blue-600 w-6 h-6" />
+          ReputationAI
+        </div>
+        <div className="space-x-4">
+          <Link href="/login" className="text-gray-600 hover:text-blue-600 font-medium">
+            Sign In
+          </Link>
+          <Link 
+            href="/login" 
+            className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            Get Started
+          </Link>
+        </div>
+      </nav>
 
-          <div className="mb-8">
-            <PlatformSelector 
-               selected={selectedPlatform} 
-               onSelect={handlePlatformChange}
-               activePlatformIds={activePlatformIds}
-               onAddClick={() => setIsAddModalOpen(true)}
-               allPlatforms={allPlatforms} 
-            />
-          </div>
+      {/* HERO SECTION */}
+      <main className="max-w-5xl mx-auto px-6 py-20 text-center">
+        <div className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-sm font-semibold mb-6">
+          🚀 New: Google & Facebook Sync Integration
+        </div>
+        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight text-gray-900">
+          Manage Your Online <br/>
+          <span className="text-blue-600">Reputation</span> in One Place
+        </h1>
+        <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
+          Aggregate reviews from Google, Facebook, and more. Analyze sentiment with AI and respond faster than ever before.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <Link 
+            href="/login" 
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-blue-700 transition-transform hover:scale-105"
+          >
+            Start Free Trial <ArrowRight size={20} />
+          </Link>
+          <Link 
+            href="#" 
+            className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 px-8 py-4 rounded-xl text-lg font-bold hover:bg-gray-200 transition-colors"
+          >
+            View Demo
+          </Link>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
-             {selectedPlatform === 'manual' && (
-                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col items-center justify-center text-center h-48">
-                    <div className="p-3 bg-gray-100 text-gray-600 rounded-full mb-3"><Phone size={24} /></div>
-                    <h3 className="font-bold text-gray-700 text-sm">Offline Feedback</h3>
-                    <p className="text-xs text-gray-400 mt-1">Viewing phone & in-person logs</p>
-                </div>
-             )}
-             {selectedPlatform !== 'all' && selectedPlatform !== 'manual' && (
-                <ConnectCard 
-                  platform={selectedPlatform} 
-                  label={allPlatforms.find(p => p.id === selectedPlatform)?.label || "Platform"} 
-                  color="bg-blue-600"
-                />
-             )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard title="Total Mentions" value={totalReviews} icon={<MessageCircle size={24} className="text-blue-600"/>} color="bg-blue-100" />
-            <StatCard title="Positive Feedback" value={sentimentCounts.positive} icon={<ThumbsUp size={24} className="text-green-600"/>} color="bg-green-100" />
-            <StatCard title="Avg Rating" value={avgRating} icon={<Star size={24} className="text-yellow-600"/>} color="bg-yellow-100" />
-            <StatCard title="Negative / Action Needed" value={sentimentCounts.negative} icon={<AlertCircle size={24} className="text-red-600"/>} color="bg-red-100" />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-6">
-               <SLAChart reviews={filteredReviews} />
-               <SentimentChart reviews={filteredReviews} />
-            </div>
-            <div className="lg:col-span-1">
-               <RecentMentions data={filteredReviews} />
-            </div>
-          </div>
-        </main>
-        {isAddModalOpen && (
-          <AddPlatformModal 
-            currentIds={activePlatformIds}
-            onClose={() => setIsAddModalOpen(false)}
-            onSave={handleSavePlatforms}
-            onCustomAdded={refreshPlatformDefinitions}
+        {/* FEATURES GRID */}
+        <div className="grid md:grid-cols-3 gap-8 mt-24 text-left">
+          <FeatureCard 
+            icon={<Zap className="w-8 h-8 text-yellow-500" />}
+            title="Instant Sync"
+            desc="Connect your Google & Facebook accounts to pull reviews instantly."
           />
-        )}
+          <FeatureCard 
+            icon={<Shield className="w-8 h-8 text-green-500" />}
+            title="AI Analysis"
+            desc="Our AI automatically detects positive and negative sentiment in feedback."
+          />
+          <FeatureCard 
+            icon={<Star className="w-8 h-8 text-blue-500" />}
+            title="Unified Dashboard"
+            desc="See all your ratings, reviews, and SLAs in a single clean view."
+          />
+        </div>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="border-t border-gray-100 mt-20 py-12 text-center text-gray-400 text-sm">
+        © 2026 ReputationAI Inc. All rights reserved.
+      </footer>
+    </div>
+  );
+}
+
+// Simple Sub-component for the grid
+function FeatureCard({ icon, title, desc }: { icon: any, title: string, desc: string }) {
+  return (
+    <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
+      <div className="mb-4 bg-white w-14 h-14 rounded-xl flex items-center justify-center shadow-sm">
+        {icon}
       </div>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-500 leading-relaxed">{desc}</p>
     </div>
   );
 }
