@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { MessageCircle, ThumbsUp, Star, AlertCircle, Phone, Loader2 } from 'lucide-react';
 
-// ✅ SAFE IMPORTS: Using '@/' works from any folder depth
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import StatCard from '@/components/StatCard';
@@ -32,7 +31,7 @@ export default function DashboardPage() {
   
   const [allPlatforms, setAllPlatforms] = useState<any[]>(MASTER_PLATFORMS);
 
-  // 1. Auth Check (Protect this page)
+  // 1. Auth Check
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
@@ -75,7 +74,6 @@ export default function DashboardPage() {
   };
 
   // 5. FETCH DATA
-// 5. FETCH DATA (Updated with Auto-Activate Logic)
   useEffect(() => {
     if (status === 'authenticated') {
       async function fetchData() {
@@ -92,15 +90,11 @@ export default function DashboardPage() {
           if (res.ok) {
              const json = await res.json();
              setData(json);
-             console.log("✅ DATA RECEIVED:", json);
-
-             // 🚨 THE FIX: Auto-Add Connected Platforms to Tabs
-             // If API says we are connected to 'instagram', make sure it's in the list!
+             
+             // Auto-Add Connected Platforms to Tabs
              if (json.connectedPlatforms && json.connectedPlatforms.length > 0) {
                 setActivePlatformIds(prev => {
-                  // Merge current tabs with connected tabs (remove duplicates)
                   const merged = Array.from(new Set([...prev, ...json.connectedPlatforms]));
-                  // Save to local storage so it persists locally too
                   localStorage.setItem('my_active_platforms', JSON.stringify(merged));
                   return merged;
                 });
@@ -130,12 +124,15 @@ export default function DashboardPage() {
 
   if (!session) return null;
 
+  // ✅ FIX: Ensure all properties exist to prevent crashes
   const stats = data || {
     totalMentions: 0,
     positive: 0,
     avgRating: "0.0",
     negative: 0,
     recentMentions: [],
+    platformDistribution: [], 
+    sentimentDistribution: []
   };
 
   return (
@@ -191,11 +188,12 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 flex flex-col gap-6">
-               <SLAChart reviews={stats.recentMentions} />
-               <SentimentChart reviews={stats.recentMentions} />
+               {/* 🚨 FIX: Pass 'data' prop correctly using distribution data */}
+               <SLAChart data={stats.platformDistribution || []} />
+               <SentimentChart data={stats.sentimentDistribution || []} />
             </div>
             <div className="lg:col-span-1">
-               <RecentMentions data={stats.recentMentions} />
+               <RecentMentions data={stats.recentMentions || []} />
             </div>
           </div>
         </main>
