@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../../components/Sidebar';
 import Header from '../../components/Header';
-import { Save, Store, User, Bot, Bell, CheckCircle } from 'lucide-react'; // <--- Added User Icon
+// 1. Import the new component
+import WebhookConnect from '../../components/WebhookConnect'; 
+import { Save, Store, User, Bot, Bell, CheckCircle } from 'lucide-react';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [accountType, setAccountType] = useState('business'); // Default to business
+  const [accountType, setAccountType] = useState('business');
 
   // Form State
   const [settings, setSettings] = useState({
@@ -19,20 +21,18 @@ export default function SettingsPage() {
     emailAlerts: true
   });
 
-  // 1. Load Settings & Account Type on Mount
+  // Load Settings & Account Type on Mount
   useEffect(() => {
-    // A. Check Account Type
     const type = localStorage.getItem('account_type');
     if (type) setAccountType(type);
 
-    // B. Load Saved Preferences
     const saved = localStorage.getItem('app_settings');
     if (saved) {
       setSettings(JSON.parse(saved));
     }
   }, []);
 
-  // 2. Handle Save
+  // Handle Save
   const handleSave = () => {
     setLoading(true);
     setTimeout(() => {
@@ -53,15 +53,13 @@ export default function SettingsPage() {
           
           <h1 className="text-2xl font-bold text-gray-800 mb-6">Settings</h1>
 
-          {/* SECTION 1: PROFILE (Dynamic based on Account Type) */}
+          {/* SECTION 1: PROFILE */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
              <div className="flex items-center gap-3 mb-6 border-b pb-4">
                 <div className={`p-2 rounded-lg ${accountType === 'business' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                   {/* Swap Icon based on Type */}
                    {accountType === 'business' ? <Store size={20} /> : <User size={20} />}
                 </div>
                 <div>
-                   {/* Dynamic Header */}
                    <h2 className="font-bold text-gray-800">
                       {accountType === 'business' ? 'Business Profile' : 'Personal Profile'}
                    </h2>
@@ -73,16 +71,14 @@ export default function SettingsPage() {
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                   {/* Dynamic Label */}
                    <label className="block text-xs font-bold text-gray-500 mb-1">
                       {accountType === 'business' ? 'Business Name' : 'Full Name'}
                    </label>
                    <input 
-                     type="text" 
-                     className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                     // Ensure fallback to empty string to prevent "uncontrolled" error
-                     value={settings.businessName || ''}
-                     onChange={(e) => setSettings({...settings, businessName: e.target.value})}
+                      type="text" 
+                      className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={settings.businessName || ''}
+                      onChange={(e) => setSettings({...settings, businessName: e.target.value})}
                    />
                 </div>
                 <div>
@@ -90,11 +86,11 @@ export default function SettingsPage() {
                       {accountType === 'business' ? 'Website URL' : 'Portfolio / Website'}
                    </label>
                    <input 
-                     type="text" 
-                     className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                     placeholder={accountType === 'business' ? "https://example.com" : "https://linkedin.com/in/me"}
-                     value={settings.website || ''}
-                     onChange={(e) => setSettings({...settings, website: e.target.value})}
+                      type="text" 
+                      className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder={accountType === 'business' ? "https://example.com" : "https://linkedin.com/in/me"}
+                      value={settings.website || ''}
+                      onChange={(e) => setSettings({...settings, website: e.target.value})}
                    />
                 </div>
              </div>
@@ -175,8 +171,13 @@ export default function SettingsPage() {
              </div>
           </div>
 
+          {/* 4. NEW SECTION: ZAPIER / WEBHOOK INTEGRATION */}
+          <div className="mb-8">
+            <WebhookConnect />
+          </div>
+
           {/* SAVE BUTTON */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pb-10">
              <button 
                onClick={handleSave}
                disabled={loading}

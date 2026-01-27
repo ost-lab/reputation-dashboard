@@ -1,21 +1,8 @@
 "use client";
-
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// FIX: Explicitly type the props as { reviews: any[] }
-export default function SLAChart({ reviews }: { reviews: any[] }) {
-  
-  const data = reviews.reduce((acc: any[], review) => {
-    const platform = review.source || 'Other';
-    const existing = acc.find(item => item.name === platform);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      acc.push({ name: platform, count: 1 });
-    }
-    return acc;
-  }, []);
-
+// ✅ Accepts pre-calculated data: [{ name: 'Google', count: 10 }]
+export default function SLAChart({ data }: { data: any[] }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
       <h3 className="font-bold text-gray-800 mb-4">Reviews by Platform</h3>

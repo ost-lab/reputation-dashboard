@@ -1,23 +1,30 @@
 "use client";
-
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-// FIX: Define Props
-export default function SentimentChart({ reviews }: { reviews: any[] }) {
+const COLORS = {
+  positive: '#22c55e', // Green
+  neutral: '#eab308',  // Yellow
+  negative: '#ef4444'  // Red
+};
 
-  const sentimentCounts = reviews.reduce((acc: any, r) => {
-    const s = (r.sentiment || 'neutral').toLowerCase();
-    if (s.includes('positive')) acc[0].value++;
-    else if (s.includes('negative')) acc[2].value++;
-    else acc[1].value++;
-    return acc;
-  }, [
-    { name: 'Positive', value: 0, color: '#22c55e' }, 
-    { name: 'Neutral', value: 0, color: '#eab308' },  
-    { name: 'Negative', value: 0, color: '#ef4444' } 
-  ]);
+// ✅ FIX: Default 'data' to an empty array to prevent the crash
+export default function SentimentChart({ data = [] }: { data?: any[] }) {
 
-  const activeData = sentimentCounts.filter((d: any) => d.value > 0);
+  // Guard Clause: If data is empty, show a fallback message
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-64 flex items-center justify-center text-gray-400">
+        No sentiment data available
+      </div>
+    );
+  }
+
+  // Safely map only if data exists
+  const chartData = data.map(item => ({
+    name: item.name.charAt(0).toUpperCase() + item.name.slice(1), 
+    value: Number(item.value),
+    color: COLORS[item.name as keyof typeof COLORS] || '#9ca3af'
+  }));
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -26,7 +33,7 @@ export default function SentimentChart({ reviews }: { reviews: any[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={activeData}
+              data={chartData}
               cx="50%"
               cy="50%"
               innerRadius={60}
@@ -34,7 +41,7 @@ export default function SentimentChart({ reviews }: { reviews: any[] }) {
               paddingAngle={5}
               dataKey="value"
             >
-              {activeData.map((entry: any, index: number) => (
+              {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>

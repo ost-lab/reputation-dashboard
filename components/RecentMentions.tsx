@@ -1,47 +1,65 @@
 "use client";
 
-import { MessageSquare, Star } from 'lucide-react';
+import { MessageCircle, Star, Calendar } from 'lucide-react';
 
 export default function RecentMentions({ data }: { data: any[] }) {
   
-  // Take the first 5 items
-  const recent = data.slice(0, 5);
+  // Safe check: If data is missing or empty
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 col-span-3">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Mentions</h3>
+        <div className="text-center py-8 text-gray-500">
+          <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-20" />
+          <p>No recent reviews found.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full">
-      <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-        <MessageSquare size={18} className="text-blue-500"/> Recent Mentions
-      </h3>
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 col-span-3">
+      <h3 className="text-lg font-bold text-gray-800 mb-6">Recent Mentions</h3>
       
-      <div className="space-y-4">
-        {recent.map((review, i) => (
-          <div key={i} className="pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-             <div className="flex justify-between items-start mb-1">
-                {/* FIX 1: Use 'user_name' instead of 'author' */}
-                <span className="font-bold text-sm text-gray-700">
-                    {review.user_name || "Anonymous"}
-                </span>
-                
-                {/* FIX 2: Format the date nicely */}
-                <span className="text-[10px] text-gray-400">
-                    {review.date ? new Date(review.date).toLocaleDateString() : "Just now"}
-                </span>
-             </div>
-             
-             <div className="flex text-yellow-400 mb-1">
-                {[...Array(5)].map((_, idx) => (
-                   <Star key={idx} size={10} fill={idx < (review.rating || 0) ? "currentColor" : "none"} className={idx < (review.rating || 0) ? "" : "text-gray-200"} />
-                ))}
-             </div>
-             <p className="text-xs text-gray-500 line-clamp-2 italic">"{review.text || "No content"}"</p>
+      <div className="space-y-6">
+        {data.map((review, i) => (
+          <div key={i} className="flex flex-col sm:flex-row gap-4 pb-6 border-b border-gray-100 last:border-0 last:pb-0">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                {review.author_name ? review.author_name[0].toUpperCase() : "?"}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-semibold text-gray-900">{review.author_name || "Unknown Author"}</h4>
+                  <div className="flex items-center text-xs text-gray-500 mt-1 space-x-2">
+                    <span className="capitalize bg-gray-100 px-2 py-0.5 rounded text-gray-600">
+                      {review.platform || "System"}
+                    </span>
+                    <span className="flex items-center">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {review.created_at ? new Date(review.created_at).toLocaleDateString() : ""}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div className="flex items-center bg-yellow-50 px-2 py-1 rounded-md border border-yellow-100">
+                  <span className="font-bold text-yellow-700 mr-1">{review.rating}</span>
+                  <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                </div>
+              </div>
+
+              <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                {review.content}
+              </p>
+            </div>
           </div>
         ))}
-        
-        {recent.length === 0 && (
-          <div className="text-center text-gray-400 text-sm py-10">
-            No recent mentions found.
-          </div>
-        )}
       </div>
     </div>
   );

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, Loader2, Link as LinkIcon, LogOut } from 'lucide-react';
 import PlatformIcon from './PlatformIcon';
 
-// FIX: Define Props
 interface ConnectCardProps {
   platform: string;
   label: string;
@@ -12,6 +11,7 @@ interface ConnectCardProps {
 
 export default function ConnectCard({ platform, label, color }: ConnectCardProps) {
   const storageKey = `${platform}_connected`; 
+  const urlKey = `${platform}_url`; // ✅ New key to store the URL
   
   const [isConnected, setIsConnected] = useState(false);
   const [accountName, setAccountName] = useState('');
@@ -19,33 +19,43 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
   const [status, setStatus] = useState('idle');
 
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
+    // Restore state from local storage on mount
+    const savedName = localStorage.getItem(storageKey);
+    const savedUrl = localStorage.getItem(urlKey);
+    
+    if (savedName) {
       setIsConnected(true);
-      setAccountName(saved);
-    } else {
-      setIsConnected(false);
-      setAccountName('');
-      setInputUrl('');
+      setAccountName(savedName);
+      if (savedUrl) setInputUrl(savedUrl);
     }
-  }, [platform, storageKey]); 
+  }, [platform, storageKey, urlKey]); 
 
   const handleConnect = () => {
     if (!inputUrl) return alert("Please paste a link first.");
     
     setStatus('connecting');
+    
+    // Simulate verification delay
     setTimeout(() => {
       setIsConnected(true);
       const fakeName = `${label} Page`; 
       setAccountName(fakeName);
+      
+      // ✅ SAVE DATA LOCALLY
       localStorage.setItem(storageKey, fakeName);
+      localStorage.setItem(urlKey, inputUrl); // Save URL for syncing later
+      
       setStatus('idle');
-    }, 1200);
+    }, 1000);
   };
 
   const handleDisconnect = () => {
     if(!confirm("Disconnect this account?")) return;
+    
+    // Clear Local Storage
     localStorage.removeItem(storageKey);
+    localStorage.removeItem(urlKey);
+    
     setIsConnected(false);
     setAccountName('');
     setInputUrl('');
@@ -54,21 +64,30 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
   const handleSync = async () => {
     setStatus('syncing');
     try {
+      // ✅ FIX: Send the URL to the API
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: platform }) 
+        body: JSON.stringify({ 
+          platform: platform,
+          url: inputUrl // Pass the URL we saved
+        }) 
       });
 
       if (res.ok) {
         setStatus('success');
         setTimeout(() => window.location.reload(), 1500);
+      } else {
+        setStatus('idle');
+        alert("Sync failed. Please check the URL.");
       }
     } catch (error) {
       console.error(error);
       setStatus('idle');
     }
   };
+
+  // ... (Rest of UI remains exactly the same as your code) ...
 
   if (status === 'success') {
     return (
