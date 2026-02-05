@@ -1,58 +1,64 @@
 "use client";
-import { Plus, LayoutGrid, Phone } from 'lucide-react'; 
 
-// FIX: Define Props Interface
+import { Check, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils'; // Assuming you have a utils file, or remove cn if not used
+
 interface PlatformSelectorProps {
   selected: string;
   onSelect: (id: string) => void;
   activePlatformIds: string[];
   onAddClick: () => void;
-  allPlatforms: any[]; 
+  allPlatforms: any[];
 }
 
-export default function PlatformSelector({ selected, onSelect, activePlatformIds, onAddClick, allPlatforms }: PlatformSelectorProps) {
+export default function PlatformSelector({ 
+  selected, 
+  onSelect, 
+  activePlatformIds,
+  onAddClick,
+  allPlatforms
+}: PlatformSelectorProps) {
   
-  const fixedOptions = [
-    { id: 'all', label: 'All Sources', icon: <LayoutGrid size={18} />, color: 'text-gray-600' },
-    { id: 'manual', label: 'Manual / Phone', icon: <Phone size={18} />, color: 'text-gray-500' },
+  // Filter to only show active platforms + 'all'
+  const activePlatforms = [
+    { id: 'all', label: 'All Sources', icon: null }, // 'All' has no specific icon usually
+    ...allPlatforms.filter(p => activePlatformIds.includes(p.id))
   ];
 
-  // Default to empty array if undefined to prevent crashes
-  const safeList = allPlatforms || [];
-  
-  const userOptions = safeList.filter(p => activePlatformIds.includes(p.id));
-
-  const displayList = [...fixedOptions, ...userOptions];
-
   return (
-    <div className="flex flex-wrap gap-3 pb-4">
-      {displayList.map((p) => (
-        <button
-          key={p.id}
-          onClick={() => onSelect(p.id)}
-          className={`
-            flex items-center gap-2 px-4 py-3 rounded-xl border transition-all shadow-sm
-            ${selected === p.id 
-              ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' 
-              : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md'
-            }
-          `}
-        >
-          <div className={`${selected === p.id ? 'text-blue-600' : p.color || 'text-gray-500'}`}>
-            {p.icon ? p.icon : <span className="font-bold">{p.label ? p.label.charAt(0) : '?'}</span>}
-          </div>
-          <span className={`font-bold text-sm ${selected === p.id ? 'text-blue-800' : 'text-gray-600'}`}>
-            {p.label}
-          </span>
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-3 items-center">
+      {activePlatforms.map((platform) => {
+        const isActive = selected === platform.id;
+        // ✅ FIX: Alias the icon to a capitalized variable
+        const Icon = platform.icon;
 
-      <button 
+        return (
+          <button
+            key={platform.id}
+            onClick={() => onSelect(platform.id)}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all
+              ${isActive 
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }
+            `}
+          >
+            {/* ✅ FIX: Render it as a Component, checking if it exists first */}
+            {Icon && <Icon size={16} className={isActive ? "text-white" : platform.color} />}
+            
+            <span>{platform.label}</span>
+          </button>
+        );
+      })}
+
+      {/* Add Platform Button */}
+      <button
         onClick={onAddClick}
-        className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600 text-gray-400 transition-all"
+        className="flex items-center gap-2 px-4 py-2 rounded-full border border-dashed border-gray-300 text-gray-500 text-sm font-medium hover:bg-gray-50 hover:text-gray-700 hover:border-gray-400 transition-all"
       >
-        <Plus size={18} />
-        <span className="font-bold text-sm">Add Platform</span>
+        <Plus size={16} />
+        <span>Add Platform</span>
       </button>
     </div>
   );
