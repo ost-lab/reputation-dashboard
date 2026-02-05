@@ -1,145 +1,61 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { RefreshCw, CheckCircle, Loader2, Link as LinkIcon, LogOut } from 'lucide-react';
+
+import { signIn, useSession } from "next-auth/react";
+import { useState } from "react";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function GoogleConnect() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [businessName, setBusinessName] = useState('');
-  const [inputUrl, setInputUrl] = useState('');
-  const [status, setStatus] = useState('idle');
+  const { data: session } = useSession();
+  const [loading, setLoading] = useState(false);
 
-  // Load saved state on mount
-  useEffect(() => {
-    const savedName = localStorage.getItem('google_connected');
-    if (savedName) {
-      setIsConnected(true);
-      setBusinessName(savedName);
-    }
-  }, []);
+  // Check if we are already connected (Logic for later)
+  const isConnected = false; 
 
   const handleConnect = async () => {
-    // 1. Basic validation
-    if (!inputUrl.includes('google') && !inputUrl.includes('goo.gl')) {
-      alert("Please paste a valid Google Maps link");
-      return;
-    }
-    
-    setStatus('connecting');
-
-    // 2. Simulate "Connecting" (In real app, you might validate the URL here)
-    setTimeout(() => {
-      setIsConnected(true);
-      const name = "My Business (via Maps)";
-      setBusinessName(name);
-      
-      // Save to LocalStorage
-      localStorage.setItem('google_connected', name);
-      localStorage.setItem('google_url', inputUrl); // Save URL for the API
-      
-      setStatus('idle');
-    }, 1500);
+    setLoading(true);
+    // This triggers the Google Login Popup asking for Business Permissions
+    await signIn('google', { 
+        callbackUrl: '/dashboard',
+        redirect: true 
+    });
   };
 
-  const handleDisconnect = () => {
-    if(!confirm("Disconnect Google Account?")) return;
-    setIsConnected(false);
-    setBusinessName('');
-    setInputUrl('');
-    localStorage.removeItem('google_connected');
-    localStorage.removeItem('google_url');
-  };
-
-  const handleSync = async () => {
-    setStatus('syncing');
-    
-    // Get the saved URL
-    const urlToSync = localStorage.getItem('google_url') || inputUrl;
-
-    try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            platform: 'google', 
-            url: urlToSync // Send URL to backend
-        })
-      });
-
-      if (res.ok) {
-        setStatus('success');
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        setStatus('idle');
-        alert("Sync failed. Please check the URL.");
-      }
-    } catch (error) {
-      console.error("Sync failed", error);
-      setStatus('idle');
-    }
-  };
-
-  // --- UI: CONNECTED STATE ---
   if (isConnected) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-blue-100 flex flex-col items-center justify-center text-center h-48 relative overflow-hidden group">
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-           <span className="text-[10px] font-bold text-gray-400">Live</span>
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex flex-col items-center text-center">
+        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+           <CheckCircle className="text-green-600" size={24} />
         </div>
-        
-        <button onClick={handleDisconnect} className="absolute top-3 right-3 text-gray-300 hover:text-red-500 transition-colors">
-          <LogOut size={14} />
-        </button>
-
-        <div className="w-12 h-12 bg-white border rounded-full flex items-center justify-center shadow-sm mb-3">
-             <span className="font-bold text-blue-500 text-xl">G</span>
-        </div>
-        
-        <h3 className="font-bold text-gray-800 text-sm">Google Connected</h3>
-        <p className="text-xs text-gray-400 mb-4">{businessName}</p>
-        
-        <button 
-          onClick={handleSync}
-          disabled={status === 'syncing' || status === 'success'}
-          className="w-full px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-all"
-        >
-          {status === 'syncing' ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          {status === 'success' ? 'Synced!' : status === 'syncing' ? 'Scanning...' : 'Sync Reviews'}
-        </button>
+        <h3 className="font-bold text-gray-900">Google Connected</h3>
+        <p className="text-sm text-gray-500 mt-1">Syncing reviews automatically.</p>
       </div>
     );
   }
 
-  // --- UI: INPUT STATE ---
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-auto flex flex-col justify-center">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-10 h-10 bg-white border rounded-full flex items-center justify-center shadow-sm">
-           <span className="font-bold text-blue-500 text-lg">G</span>
-        </div>
-        <div>
-          <h3 className="font-bold text-gray-800 text-sm">Connect Google Business</h3>
-          <p className="text-xs text-gray-500">Paste your profile link below</p>
-        </div>
+    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col items-center text-center">
+      <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mb-3">
+        {/* Google G Logo */}
+        <svg className="w-6 h-6" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.26.81-.58z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+        </svg>
       </div>
+      
+      <h3 className="font-bold text-gray-900">Connect Google Business</h3>
+      <p className="text-sm text-gray-500 mt-2 mb-4">
+        Grant access to fetch reviews and manage replies directly.
+      </p>
 
-      <div className="mt-2">
-         <input 
-           type="text" 
-           placeholder="https://maps.google.com/?cid=..."
-           className="w-full text-xs border rounded p-2 mb-2 focus:ring-2 focus:ring-blue-500 outline-none"
-           value={inputUrl}
-           onChange={(e) => setInputUrl(e.target.value)}
-         />
-         <button 
-           onClick={handleConnect}
-           disabled={status === 'connecting'}
-           className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-xs font-bold transition-all flex justify-center gap-2"
-         >
-           {status === 'connecting' ? <Loader2 size={14} className="animate-spin"/> : <LinkIcon size={14}/>}
-           {status === 'connecting' ? 'Verifying...' : 'Connect Account'}
-         </button>
-      </div>
+      <button 
+        onClick={handleConnect}
+        disabled={loading}
+        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+      >
+        {loading ? <Loader2 className="animate-spin" size={18} /> : "Connect Account"}
+      </button>
     </div>
   );
 }
