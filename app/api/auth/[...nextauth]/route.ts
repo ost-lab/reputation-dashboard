@@ -12,11 +12,13 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          // This asks for permission to see their Business Reviews
-          scope: "openid email profile https://www.googleapis.com/auth/business.manage",
-          prompt: "consent",
+          // 🚨 CHANGE THIS LINE BELOW:
+          // "consent" = asks for permission
+          // "select_account" = forces the account picker screen
+          prompt: "consent select_account", 
           access_type: "offline",
-          response_type: "code"
+          response_type: "code",
+          scope: "openid email profile https://www.googleapis.com/auth/business.manage"
         }
       }
     }),
