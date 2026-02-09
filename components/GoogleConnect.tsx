@@ -35,13 +35,22 @@ export default function GoogleConnect() {
     }
   }, [session]);
 
-  const handleConnect = async () => {
+  // const handleConnect = async () => {
+  //   setLoading(true);
+  //   await signIn('google', { 
+  //       callbackUrl: '/dashboard?platform=google', 
+  //       redirect: true 
+  //   });
+  // };
+
+const handleConnect = () => {
     setLoading(true);
-    await signIn('google', { 
-        callbackUrl: '/dashboard?platform=google', 
-        redirect: true 
-    });
+    // 🚀 Visit our manual route instead of using NextAuth
+    window.location.href = "/api/connect/google/start";
   };
+
+
+
 
   // 2. The "Sync Now" Function
   const handleSync = async () => {
