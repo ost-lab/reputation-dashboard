@@ -1,36 +1,45 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
-import { useState } from "react";
-import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react"; // ✅ Import useEffect
+import { Loader2, CheckCircle } from "lucide-react";
 
 export default function GoogleConnect() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // Check if we are already connected (Logic for later)
-  const isConnected = false; 
+  // ✅ CHECK: Ask the API if we are connected
+  useEffect(() => {
+    // Check local storage first for instant feedback
+    const activePlatforms = JSON.parse(localStorage.getItem('my_active_platforms') || '[]');
+    if (activePlatforms.includes('google')) {
+        setIsConnected(true);
+    }
+  }, []);
 
   const handleConnect = async () => {
     setLoading(true);
-    // This triggers the Google Login Popup asking for Business Permissions
     await signIn('google', { 
-        callbackUrl: '/dashboard',
+        callbackUrl: '/dashboard?platform=google', // ✅ Redirect back and open Google tab
         redirect: true 
     });
   };
 
   if (isConnected) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex flex-col items-center text-center">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex flex-col items-center text-center animate-in fade-in">
         <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
            <CheckCircle className="text-green-600" size={24} />
         </div>
         <h3 className="font-bold text-gray-900">Google Connected</h3>
         <p className="text-sm text-gray-500 mt-1">Syncing reviews automatically.</p>
+        <button className="mt-4 text-xs text-green-700 underline">Manage Settings</button>
       </div>
     );
   }
+
+
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col items-center text-center">
