@@ -7,11 +7,13 @@ interface ConnectCardProps {
   platform: string;
   label: string;
   color: string;
+  // ✅ NEW: Accept the real connected name from the Database
+  connectedLabel?: string; 
 }
 
-export default function ConnectCard({ platform, label, color }: ConnectCardProps) {
+export default function ConnectCard({ platform, label, color, connectedLabel }: ConnectCardProps) {
   const storageKey = `${platform}_connected`; 
-  const urlKey = `${platform}_url`; // ✅ New key to store the URL
+  const urlKey = `${platform}_url`; 
   
   const [isConnected, setIsConnected] = useState(false);
   const [accountName, setAccountName] = useState('');
@@ -19,7 +21,14 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
   const [status, setStatus] = useState('idle');
 
   useEffect(() => {
-    // Restore state from local storage on mount
+    // 1. PRIORITY: If DB has a label (passed via props), use it!
+    if (connectedLabel) {
+        setIsConnected(true);
+        setAccountName(connectedLabel);
+        return;
+    }
+
+    // 2. FALLBACK: Check Local Storage (for instant UI feedback before DB loads)
     const savedName = localStorage.getItem(storageKey);
     const savedUrl = localStorage.getItem(urlKey);
     
@@ -28,22 +37,24 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
       setAccountName(savedName);
       if (savedUrl) setInputUrl(savedUrl);
     }
-  }, [platform, storageKey, urlKey]); 
+  }, [platform, storageKey, urlKey, connectedLabel]); 
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!inputUrl) return alert("Please paste a link first.");
     
     setStatus('connecting');
     
-    // Simulate verification delay
+    // We simulate a connection here, but the real save happens on Sync usually
+    // or you can call an API here to save the URL immediately.
     setTimeout(() => {
       setIsConnected(true);
-      const fakeName = `${label} Page`; 
-      setAccountName(fakeName);
+      // Temporary name until Sync runs and gets the real one
+      const tempName = "Connected Profile"; 
+      setAccountName(tempName);
       
-      // ✅ SAVE DATA LOCALLY
-      localStorage.setItem(storageKey, fakeName);
-      localStorage.setItem(urlKey, inputUrl); // Save URL for syncing later
+      // Save locally for speed
+      localStorage.setItem(storageKey, tempName);
+      localStorage.setItem(urlKey, inputUrl); 
       
       setStatus('idle');
     }, 1000);
@@ -56,6 +67,9 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
     localStorage.removeItem(storageKey);
     localStorage.removeItem(urlKey);
     
+    // TODO: You might want to add an API call here to delete from DB:
+    // fetch('/api/disconnect', { method: 'POST', body: ... })
+    
     setIsConnected(false);
     setAccountName('');
     setInputUrl('');
@@ -64,18 +78,23 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
   const handleSync = async () => {
     setStatus('syncing');
     try {
-      // ✅ FIX: Send the URL to the API
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           platform: platform,
-          url: inputUrl // Pass the URL we saved
+          url: inputUrl 
         }) 
       });
 
       if (res.ok) {
+        const data = await res.json();
+        
         setStatus('success');
+        
+        // ✅ IF SERVER FOUND A REAL NAME (e.g. "Toronto Condo Kings"), UPDATE IT
+        // We assume the backend might return { connectedLabel: "Name" } in the response
+        // If not, we just reload to fetch the fresh DB state.
         setTimeout(() => window.location.reload(), 1500);
       } else {
         setStatus('idle');
@@ -87,8 +106,6 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
     }
   };
 
-  // ... (Rest of UI remains exactly the same as your code) ...
-
   if (status === 'success') {
     return (
       <div className={`bg-green-50 p-6 rounded-lg shadow-sm border border-green-200 flex flex-col items-center justify-center text-center h-48`}>
@@ -96,11 +113,12 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
           <CheckCircle size={24} />
         </div>
         <h3 className="font-bold text-green-800 text-sm">Sync Complete!</h3>
-        <p className="text-xs text-green-600 mt-1">New {label} reviews added.</p>
+        <p className="text-xs text-green-600 mt-1">New reviews added.</p>
       </div>
     );
   }
 
+  // --- NOT CONNECTED STATE ---
   if (!isConnected) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 h-auto flex flex-col justify-center transition-all">
@@ -134,6 +152,7 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
     );
   }
 
+  // --- CONNECTED STATE ---
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-blue-100 flex flex-col items-center justify-center text-center h-48 relative overflow-hidden">
        <div className="absolute top-3 left-3 flex items-center gap-2">
@@ -150,7 +169,11 @@ export default function ConnectCard({ platform, label, color }: ConnectCardProps
       </div>
       
       <h3 className="font-bold text-gray-800 text-sm">{label} Connected</h3>
-      <p className="text-xs text-gray-400 mb-4">{accountName}</p>
+      
+      {/* ✅ SHOW REAL NAME OR FALLBACK */}
+      <p className="text-xs text-gray-400 mb-4 font-medium">
+        {accountName || connectedLabel || "Connected Profile"}
+      </p>
       
       <button 
         onClick={handleSync}

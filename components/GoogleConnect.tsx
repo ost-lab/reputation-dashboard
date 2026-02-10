@@ -1,29 +1,29 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle, RefreshCw, Mail } from "lucide-react";
+import { Loader2, CheckCircle, RefreshCw, Mail, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function GoogleConnect() {
   const { data: session } = useSession();
   const router = useRouter();
+  
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
 
-  // 1. Check if connected on load
+  // 1. Check Connection & Get Real Business Email
   useEffect(() => {
     async function checkConnection() {
-      // We check our API to see if Google is truly linked in the DB
       try {
-        const res = await fetch('/api/dashboard/stats?platform=google');
+        const res = await fetch('/api/connection-status?platform=google');
         const data = await res.json();
         
-        // If the API says 'google' is in the connected list
-        if (data.connectedPlatforms && data.connectedPlatforms.includes('google')) {
+        if (data.connected) {
            setIsConnected(true);
+           setConnectedEmail(data.email); // Shows the email saved in DB
         }
       } catch (e) {
         console.error("Connection check failed", e);
@@ -35,47 +35,47 @@ export default function GoogleConnect() {
     }
   }, [session]);
 
-  // const handleConnect = async () => {
-  //   setLoading(true);
-  //   await signIn('google', { 
-  //       callbackUrl: '/dashboard?platform=google', 
-  //       redirect: true 
-  //   });
-  // };
-
-const handleConnect = () => {
+  const handleConnect = () => {
     setLoading(true);
-    // 🚀 Visit our manual route instead of using NextAuth
+    // Use the manual flow that forces the "Choose Account" screen
     window.location.href = "/api/connect/google/start";
   };
 
+  const handleDisconnect = async () => {
+    if (!confirm("Are you sure you want to disconnect this Google Account?")) return;
+    
+    setLoading(true);
+    try {
+        await fetch('/api/connect/google/disconnect', { method: 'DELETE' });
+        setIsConnected(false);
+        setConnectedEmail(null);
+        router.refresh();
+    } catch (e) {
+        alert("Failed to disconnect");
+    } finally {
+        setLoading(false);
+    }
+  };
 
-
-
-  // 2. The "Sync Now" Function
   const handleSync = async () => {
     setSyncing(true);
     try {
-      // Call our Sync Engine
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            platform: 'google',
-            useToken: true // Tell backend to use the saved DB token
-        })
+        body: JSON.stringify({ platform: 'google', useToken: true })
       });
-
+      
+      const data = await res.json();
+      
       if (res.ok) {
-        setLastSync(new Date().toLocaleTimeString());
-        router.refresh(); // Refresh the page to show new reviews
-        alert("Reviews synced successfully!");
+        router.refresh();
+        alert(`Sync Complete! Found ${data.count} reviews.`);
       } else {
-        alert("Sync failed. Please try again.");
+        alert("Sync failed: " + data.error);
       }
     } catch (error) {
-      console.error("Sync error:", error);
-      alert("Error syncing reviews");
+      alert("Sync failed");
     } finally {
       setSyncing(false);
     }
@@ -84,45 +84,47 @@ const handleConnect = () => {
   // --- RENDER: CONNECTED STATE ---
   if (isConnected) {
     return (
-      <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm animate-in fade-in">
-        <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-               <CheckCircle className="text-green-600" size={24} />
+      <div className="bg-white border border-green-200 rounded-xl p-6 shadow-sm animate-in fade-in relative">
+        {/* ❌ DISCONNECT BUTTON */}
+        <button 
+            onClick={handleDisconnect}
+            className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
+            title="Disconnect Account"
+        >
+            <Trash2 size={18} />
+        </button>
+
+        <div className="flex items-start gap-4 mb-4">
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shrink-0">
+               <CheckCircle className="text-green-600" size={20} />
             </div>
             <div>
                 <h3 className="font-bold text-gray-900 text-lg">Google Connected</h3>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                {/* ✅ DISPLAY BUSINESS EMAIL FROM DB */}
+                <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
                     <Mail size={14} />
-                    <span>{session?.user?.email || "Linked Account"}</span>
+                    <span>{connectedEmail || "Loading..."}</span>
                 </div>
             </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-             <button 
-                onClick={handleSync}
-                disabled={syncing}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm"
-             >
-                {syncing ? (
-                    <>
-                        <Loader2 className="animate-spin" size={18} />
-                        Syncing...
-                    </>
-                ) : (
-                    <>
-                        <RefreshCw size={18} />
-                        Sync Reviews Now
-                    </>
-                )}
-            </button>
-            
-            {lastSync && (
-                <p className="text-xs text-center text-gray-400">
-                    Last synced: {lastSync}
-                </p>
+        <button 
+            onClick={handleSync}
+            disabled={syncing}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 shadow-sm"
+        >
+            {syncing ? (
+                <>
+                    <Loader2 className="animate-spin" size={18} />
+                    Syncing...
+                </>
+            ) : (
+                <>
+                    <RefreshCw size={18} />
+                    Sync Reviews Now
+                </>
             )}
-        </div>
+        </button>
       </div>
     );
   }
@@ -141,7 +143,7 @@ const handleConnect = () => {
       
       <h3 className="font-bold text-gray-900">Connect Google Business</h3>
       <p className="text-sm text-gray-500 mt-2 mb-4">
-        Grant access to fetch reviews and manage replies directly.
+        Grant access to fetch reviews and manage replies.
       </p>
 
       <button 
