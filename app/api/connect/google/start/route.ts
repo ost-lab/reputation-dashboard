@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ✅ Get the email 'login_hint' from the URL
+  const { searchParams } = new URL(req.url);
+  const loginHint = searchParams.get("login_hint") || "";
+
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/connect/google/callback`;
-  
-  // We pack the Current User ID into the 'state' param
-  // This tells the callback: "Whatever happens, link this to THIS user."
   const state = session.user.id;
 
   const scope = [
@@ -21,7 +22,13 @@ export async function GET() {
     "profile"
   ].join(" ");
 
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent select_account&state=${state}`;
+  // ✅ Add '&login_hint=' to the Google URL
+  // This forces Google to pre-fill the email field with what you typed!
+  let url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
+  
+  if (loginHint) {
+      url += `&login_hint=${encodeURIComponent(loginHint)}`;
+  }
 
   return NextResponse.redirect(url);
 }
