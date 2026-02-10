@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // ✅ Get the email 'login_hint' from the URL
+  // ✅ Get the 'login_hint' from the URL
   const { searchParams } = new URL(req.url);
   const loginHint = searchParams.get("login_hint") || "";
 
@@ -22,8 +22,7 @@ export async function GET(req: Request) {
     "profile"
   ].join(" ");
 
-  // ✅ Add '&login_hint=' to the Google URL
-  // This forces Google to pre-fill the email field with what you typed!
+  // ✅ Pass login_hint to Google
   let url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${state}`;
   
   if (loginHint) {

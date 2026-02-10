@@ -14,7 +14,7 @@ export default function GoogleConnect() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null);
   
-  // ✅ NEW: State for the manual input box
+  // ✅ NEW: State to store the email you type
   const [manualEmail, setManualEmail] = useState("");
 
   // 1. Check Connection Status on Load
@@ -43,7 +43,7 @@ export default function GoogleConnect() {
     }
     setLoading(true);
     
-    // ✅ We pass the email as a parameter so the API can use it as a 'login_hint'
+    // ✅ Send the typed email to our API so Google uses it
     const encodedEmail = encodeURIComponent(manualEmail);
     window.location.href = `/api/connect/google/start?login_hint=${encodedEmail}`;
   };
@@ -55,7 +55,7 @@ export default function GoogleConnect() {
         await fetch('/api/connect/google/disconnect', { method: 'DELETE' });
         setIsConnected(false);
         setConnectedEmail(null);
-        setManualEmail(""); // Clear the input
+        setManualEmail(""); // Reset input
         router.refresh();
     } catch (e) {
         alert("Failed to disconnect");
@@ -123,10 +123,10 @@ export default function GoogleConnect() {
     );
   }
 
-  // --- RENDER: DISCONNECTED STATE (Input Box) ---
+  // --- RENDER: DISCONNECTED STATE (With Input Box) ---
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col transition-all">
-      <div className="flex items-center gap-3 mb-4 text-center justify-center">
+      <div className="flex items-center gap-3 mb-4 justify-center">
         <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
              {/* Google "G" Logo */}
             <svg className="w-5 h-5" viewBox="0 0 24 24">
