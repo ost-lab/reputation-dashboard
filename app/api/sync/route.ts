@@ -3,9 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
 
-// 🏗️ TIER 1 ARCHITECTURE: UNIVERSAL INGESTION ENGINE
+// Force dynamic to prevent caching issues
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
+    // 1. Security Check
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,49 +17,66 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { platform, url, useToken } = body; 
 
-    console.log(`🚀 SYNC STARTED: ${platform}`);
-
-    let reviewsData: any[] = [];
-    let connectedLabel = ""; // Stores "pizza@gmail.com" OR "Toronto Condo Kings"
+    console.log(`🚀 SYNC STARTED: ${platform} for User ${session.user.id}`);
 
     const client = await pool.connect();
+    let reviewsData: any[] = [];
+    let connectedLabel = ""; 
 
     try {
-      // --- 1. GOOGLE REAL-TIME SYNC (OFFICIAL API) ---
+      // ==================================================
+      // 🔵 GOOGLE SYNC (Official API with Auto-Refresh)
+      // ==================================================
       if (useToken && platform === 'google') {
-          console.log("🔍 Fetching Real Google Reviews via API...");
           
-          // A. Get the Access Token & Email from DB
+          // A. Fetch Credentials from DB
           const tokenRes = await client.query(
-            "SELECT access_token, connected_email FROM connected_accounts WHERE user_id = $1 AND platform = 'google'", 
+            "SELECT access_token, refresh_token, expires_at, connected_email FROM connected_accounts WHERE user_id = $1 AND platform = 'google'", 
             [session.user.id]
           );
           
-          const accountData = tokenRes.rows[0];
-
-          if (!accountData || !accountData.access_token) {
-            throw new Error("No Google Access Token found. Please reconnect account.");
+          if (tokenRes.rows.length === 0) {
+              throw new Error("Google account not connected");
           }
 
-          // B. Set the Label (The Email)
-          connectedLabel = accountData.connected_email || "Google Business Profile";
+          let { access_token, refresh_token, expires_at, connected_email } = tokenRes.rows[0];
+          connectedLabel = connected_email || "Google Business Profile";
 
-          // C. Fetch Real Data
-          reviewsData = await fetchRealGoogleReviews(accountData.access_token);
+          // B. CHECK EXPIRY & REFRESH IF NEEDED
+          const now = Date.now();
+          // If token expires in less than 5 mins (or is null), refresh it
+          if (!access_token || (expires_at && now >= parseInt(expires_at) - 300000)) {
+              console.log("🔄 Token expired. Refreshing...");
+              try {
+                  const newTokens = await refreshGoogleToken(refresh_token);
+                  
+                  if (newTokens.access_token) {
+                      access_token = newTokens.access_token;
+                      // Update DB with new token
+                      await client.query(
+                          "UPDATE connected_accounts SET access_token = $1, expires_at = $2, updated_at = NOW() WHERE user_id = $3 AND platform = 'google'",
+                          [access_token, Date.now() + (newTokens.expires_in * 1000), session.user.id]
+                      );
+                      console.log("✅ Token Refreshed & Saved.");
+                  }
+              } catch (refreshError) {
+                  console.error("❌ Token Refresh Failed:", refreshError);
+                  throw new Error("Session expired. Please reconnect Google Account.");
+              }
+          }
+
+          // C. Fetch Reviews using the valid Access Token
+          reviewsData = await fetchRealGoogleReviews(access_token);
           console.log(`✅ Fetched ${reviewsData.length} Real Google Reviews`);
       } 
-      
-      // --- 2. OTHER PLATFORMS (URL / SCRAPER SIMULATION) ---
+
+      // ==================================================
+      // 🟠 OTHER PLATFORMS (URL / SCRAPER SIMULATION)
+      // ==================================================
       else if (url) {
            console.log(`🔍 Processing URL for ${platform}...`);
-           
-           // A. Extract Identity (The "Name") from the URL
            connectedLabel = extractIdentityFromUrl(url);
-           console.log(`Identified '${connectedLabel}' from URL`);
 
-           // B. Generate Specific Data (Simulating a Scraper)
-           // When you get a real Scraper API key, you will replace these calls with fetch()
-           
            if (['zillow', 'realtor', 'trulia', 'apartments', 'redfin'].includes(platform)) {
                 reviewsData = generateRealEstateReviews(platform, connectedLabel);
            }
@@ -73,7 +93,6 @@ export async function POST(req: Request) {
                 reviewsData = generateSoftwareReviews(platform, connectedLabel);
            }
            else {
-                // General Fallback
                 reviewsData = generateGeneralReviews(platform, connectedLabel);
            }
       }
@@ -81,18 +100,19 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Missing URL or Token" }, { status: 400 });
       }
 
-      // --- 3. SAVE TO DATABASE ---
+      // ==================================================
+      // 💾 SAVE TO DATABASE
+      // ==================================================
       if (reviewsData.length > 0 || connectedLabel) {
           await client.query('BEGIN');
 
-          // A. Ensure User Exists
+          // Ensure User
           await client.query(`
             INSERT INTO users (id, name, email, created_at) VALUES ($1, $2, $3, NOW())
             ON CONFLICT (id) DO NOTHING
           `, [session.user.id, session.user.name || 'User', session.user.email]);
           
-          // B. Save Connection with LABEL (The Critical Fix)
-          // We save 'connectedLabel' so the UI shows the specific account name
+          // Save Connection
           await client.query(`
             INSERT INTO connected_accounts 
             (user_id, platform, provider_account_id, connected_label, updated_at)
@@ -109,7 +129,7 @@ export async function POST(req: Request) {
               connectedLabel 
           ]);
 
-          // C. Save Reviews (Upsert to avoid duplicates)
+          // Save Reviews
           for (const review of reviewsData) {
             await client.query(`
               INSERT INTO reviews (
@@ -129,10 +149,10 @@ export async function POST(req: Request) {
           await client.query('COMMIT');
       }
 
-    } catch (e) {
+    } catch (e: any) {
       await client.query('ROLLBACK');
-      console.error("Sync Error:", e);
-      return NextResponse.json({ error: "Sync Failed: " + (e as Error).message }, { status: 500 });
+      console.error("❌ SYNC ERROR:", e.message);
+      return NextResponse.json({ error: e.message }, { status: 500 });
     } finally {
       client.release();
     }
@@ -150,52 +170,86 @@ export async function POST(req: Request) {
 }
 
 // ==========================================
-// 🧩 HELPER FUNCTIONS & GENERATORS
+// 🛠️ HELPER FUNCTIONS
 // ==========================================
 
-// --- 1. GOOGLE REAL-TIME API ---
+// 1. Refresh Google Token
+async function refreshGoogleToken(refreshToken: string) {
+    const params = new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+    });
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params,
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error_description || "Failed to refresh token");
+    return data;
+}
+
+// 2. Fetch Google Reviews (Robust Error Handling)
 async function fetchRealGoogleReviews(accessToken: string) {
     try {
-        // A. Get Account ID
+        console.log("🔍 1. Fetching Accounts...");
         const accountsRes = await fetch('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
         const accountsData = await accountsRes.json();
         
+        if (accountsData.error) {
+            console.error("❌ Account API Error:", accountsData.error);
+            throw new Error(`Google API Error: ${accountsData.error.message} (Enable 'My Business Account Management API')`);
+        }
+
         if (!accountsData.accounts || accountsData.accounts.length === 0) {
-            throw new Error("No Google Business Profile found.");
+             throw new Error("No Google Business Profile found. Ensure this email is an Owner/Manager at business.google.com");
         }
         const accountName = accountsData.accounts[0].name; 
 
-        // B. Get Location ID
-        const locationsRes = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name`, {
+        console.log("🔍 2. Fetching Locations...");
+        const locationsRes = await fetch(`https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title`, {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
         const locationsData = await locationsRes.json();
         
+        if (locationsData.error) {
+             console.error("❌ Location API Error:", locationsData.error);
+             throw new Error(`Google API Error: ${locationsData.error.message} (Enable 'My Business Information API')`);
+        }
+        
         if (!locationsData.locations || locationsData.locations.length === 0) {
-            throw new Error("No Locations found.");
+            throw new Error("No Locations found inside this Business Account.");
         }
         const locationName = locationsData.locations[0].name;
 
-        // C. Get Reviews
+        console.log("🔍 3. Fetching Reviews...");
         const reviewsRes = await fetch(`https://mybusiness.googleapis.com/v4/${accountName}/${locationName}/reviews`, {
              headers: { Authorization: `Bearer ${accessToken}` }
         });
         const reviewsJson = await reviewsRes.json();
 
-        // D. Transform
+        if (reviewsJson.error) {
+             console.error("❌ Reviews API Error:", reviewsJson.error);
+             throw new Error(`Google API Error: ${reviewsJson.error.message} (Enable 'Google My Business API')`);
+        }
+
         return (reviewsJson.reviews || []).map((r: any) => ({
             rating: mapGoogleStarRating(r.starRating),
             content: r.comment || "(No text provided)",
-            author: r.reviewer?.displayName || "Anonymous Google User",
+            author: r.reviewer?.displayName || "Anonymous",
             sentiment: mapGoogleStarRating(r.starRating) >= 4 ? 'positive' : (mapGoogleStarRating(r.starRating) <= 2 ? 'negative' : 'neutral'),
             created_at: r.createTime ? new Date(r.createTime) : new Date()
         }));
 
-    } catch (error) {
-        console.error("Google API Error:", error);
-        throw error;
+    } catch (error: any) {
+        console.error("Google API Fetch Error:", error.message);
+        throw new Error(error.message); 
     }
 }
 
@@ -210,7 +264,7 @@ function mapGoogleStarRating(ratingString: string): number {
     }
 }
 
-// --- 2. URL EXTRACTOR ---
+// --- 3. URL EXTRACTOR ---
 function extractIdentityFromUrl(url: string): string {
     try {
         const cleanUrl = url.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
@@ -219,7 +273,7 @@ function extractIdentityFromUrl(url: string): string {
             let id = parts[parts.length - 1]
                 .replace(/-/g, ' ') 
                 .replace(/_/g, ' '); 
-            return id.replace(/\b\w/g, l => l.toUpperCase()); // Capitalize
+            return id.replace(/\b\w/g, l => l.toUpperCase()); 
         }
         return "Connected Profile";
     } catch (e) {
@@ -227,7 +281,7 @@ function extractIdentityFromUrl(url: string): string {
     }
 }
 
-// --- 3. MOCK DATA GENERATORS (For non-Google platforms) ---
+// --- 4. MOCK DATA GENERATORS ---
 
 function generateGeneralReviews(platform: string, businessName: string) {
     return [
