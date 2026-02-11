@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
-import { ApifyClient } from "apify-client"; // 📦 Run: npm install apify-client
+import { ApifyClient } from "apify-client";
 
 // Initialize Apify (Safe initialization even if key is missing)
 const apifyClient = new ApifyClient({
@@ -68,13 +68,11 @@ export async function POST(req: Request) {
              }
 
              // C. Try Official API
-             // If this fails (e.g. Quota 0), it throws error and we catch it below
              reviewsData = await fetchRealGoogleReviews(access_token);
              console.log(`✅ Google Official API Success: ${reviewsData.length} reviews`);
 
           } catch (googleError: any) {
              console.warn(`⚠️ Google Official API Failed (${googleError.message}). Switching to Fallback Strategy...`);
-             // We intentionally swallow the error here so the code proceeds to "Strategy B"
           }
       } 
 
@@ -82,9 +80,6 @@ export async function POST(req: Request) {
       // 🕷️ STRATEGY B: APIFY SCRAPER (Fallback & Other Platforms)
       // ==================================================
       
-      // Run this if:
-      // 1. It is a URL-based platform (Zillow, Yelp, etc)
-      // 2. OR it is Google but the Official API returned 0 reviews (meaning it failed)
       if (url || (platform === 'google' && reviewsData.length === 0)) {
            
            const targetUrl = url || connectedLabel || "business review";
@@ -94,10 +89,8 @@ export async function POST(req: Request) {
                let actorId = "";
                let input = {};
 
-               // --- CONFIG: CHOOSE THE RIGHT SCRAPER ROBOT ---
                if (platform === 'google') {
                    actorId = "compass/google-maps-reviews-scraper"; 
-                   // If we only have email, search by email/name. If URL provided, use URL.
                    input = { searchStrings: [targetUrl], maxReviews: 20, language: "en" };
                }
                else if (platform === 'yelp') {
@@ -113,16 +106,15 @@ export async function POST(req: Request) {
                    input = { startUrls: [{ url: targetUrl }], maxReviews: 20 };
                }
                else if (['zillow', 'realtor'].includes(platform)) {
-                    // Zillow scraping is complex, Apify has specific actors but often requires paid tier
-                    // We use a generic one or fallback to simulation if token invalid
                     actorId = "apify/zillow-scraper";
                     input = { search: targetUrl, maxItems: 20 };
                }
 
-               // --- EXECUTE SCRAPER ---
                if (actorId && process.env.APIFY_API_TOKEN) {
                    const run = await apifyClient.actor(actorId).call(input);
-                   const { items } = await apifyClient.dataset(run.defaultDatasetId).list();
+                   
+                   // ✅ FIX: Use .listItems() instead of .list()
+                   const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
                    if (items && items.length > 0) {
                         reviewsData = items.map((item: any) => ({
@@ -136,7 +128,6 @@ export async function POST(req: Request) {
                    }
                } 
 
-               // If scraper returned nothing (or no token), trigger fallback
                if (reviewsData.length === 0) {
                    console.log("⚠️ Scraper returned empty or no token. Using Simulation.");
                    reviewsData = generateFallbackReviews(platform, connectedLabel);
@@ -148,24 +139,21 @@ export async function POST(req: Request) {
            }
       }
       
-      // If we still have no data (e.g. platform not supported by scraper), generate mock
       if (reviewsData.length === 0 && !['google'].includes(platform)) {
           reviewsData = generateFallbackReviews(platform, connectedLabel);
       }
 
       // ==================================================
-      // 💾 SAVE TO DATABASE (Standard Logic)
+      // 💾 SAVE TO DATABASE
       // ==================================================
       if (reviewsData.length > 0 || connectedLabel) {
           await client.query('BEGIN');
           
-          // Ensure User
           await client.query(`
             INSERT INTO users (id, name, email, created_at) VALUES ($1, $2, $3, NOW())
             ON CONFLICT (id) DO NOTHING
           `, [session.user.id, session.user.name || 'User', session.user.email]);
           
-          // Save Connection
           await client.query(`
             INSERT INTO connected_accounts 
             (user_id, platform, provider_account_id, connected_label, updated_at)
@@ -182,7 +170,6 @@ export async function POST(req: Request) {
               connectedLabel 
           ]);
           
-          // Save Reviews
           for (const review of reviewsData) {
             await client.query(`
               INSERT INTO reviews (
@@ -223,7 +210,6 @@ export async function POST(req: Request) {
 // 🛠️ HELPER FUNCTIONS
 // ==========================================
 
-// 1. Refresh Google Token
 async function refreshGoogleToken(refreshToken: string) {
     const params = new URLSearchParams({
         client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -243,7 +229,6 @@ async function refreshGoogleToken(refreshToken: string) {
     return data;
 }
 
-// 2. Fetch Google Reviews (Robust Error Handling)
 async function fetchRealGoogleReviews(accessToken: string) {
     try {
         console.log("🔍 1. Fetching Accounts...");
@@ -301,7 +286,6 @@ function mapGoogleStarRating(ratingString: string): number {
     }
 }
 
-// --- 3. URL EXTRACTOR ---
 function extractIdentityFromUrl(url: string): string {
     try {
         const cleanUrl = url.replace(/(^\w+:|^)\/\//, '').replace(/\/$/, '');
@@ -318,13 +302,9 @@ function extractIdentityFromUrl(url: string): string {
     }
 }
 
-// --- 4. MOCK DATA GENERATORS (SAFE FALLBACK) ---
 function generateFallbackReviews(platform: string, label: string) {
-    // If you have specific generator functions (like generateRealEstateReviews) keep them.
-    // Otherwise, this generic one handles everything safely.
     return [
       { author: "Simulation User", rating: 5, content: `Simulation Data for ${platform} (${label}). Add APIFY_API_TOKEN to fetch real data.`, sentiment: "positive", created_at: new Date() },
       { author: "Happy Client", rating: 4, content: "Great service, waiting for real API connection.", sentiment: "positive", created_at: new Date(Date.now() - 86400000) }
     ];
 }
-
