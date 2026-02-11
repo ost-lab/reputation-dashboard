@@ -115,7 +115,7 @@ export async function POST(req: Request) {
                    actorId = "voyager/booking-reviews-scraper";
                    input = { 
                        startUrls: [{ url: targetUrl }], 
-                       maxReviews: 5000 // Increased limit since you have 261 reviews!
+                       maxReviews: 50
                    };
                }
 
@@ -131,12 +131,13 @@ export async function POST(req: Request) {
                             // 1. FIX RATING: Convert 10-point scale to 5-point
                             let finalRating = item.rating || item.stars || 0;
                             if (typeof finalRating === 'string') finalRating = parseFloat(finalRating);
-                            // If it's Booking.com (1-10), divide by 2
-                            if (platform.includes('booking') && finalRating > 5) {
+                            
+                            // If it's Booking.com and rating is > 5 (e.g., 8.5/10), convert to 5-star scale
+                            if ((platform === 'booking' || platform === 'booking.com') && finalRating > 5) {
                                 finalRating = finalRating / 2;
                             }
 
-                            // 2. FIX CONTENT: Stitch together the split text fields from Booking.com
+                            // 2. FIX CONTENT: Stitch together split text fields
                             let contentParts = [];
                             if (item.reviewTitle) contentParts.push(`"${item.reviewTitle}"`);
                             if (item.reviewTextParts?.Liked) contentParts.push(`✅ ${item.reviewTextParts.Liked}`);
@@ -150,8 +151,14 @@ export async function POST(req: Request) {
                             // 3. FIX AUTHOR: Check 'userName' specifically for Booking
                             const finalAuthor = item.userName || item.reviewerName || item.user?.name || item.name || "Anonymous Guest";
 
-                            // 4. FIX DATE: Ensure valid date object
-                            const finalDate = item.date ? new Date(item.date) : new Date();
+                            // 4. FIX DATE: Check multiple possible date fields
+                            // Booking scraper sometimes uses 'submissionTime' or 'date' or 'reviewDate'
+                            let rawDate = item.submissionTime || item.date || item.reviewDate || item.postedAt;
+                            let finalDate = new Date(); // Default to now
+                            if (rawDate) {
+                                const parsed = new Date(rawDate);
+                                if (!isNaN(parsed.getTime())) finalDate = parsed;
+                            }
 
                             return {
                                 rating: finalRating,

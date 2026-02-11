@@ -1,6 +1,7 @@
 "use client";
 import { Star, MessageCircle, MapPin, BedDouble } from "lucide-react";
 import PlatformIcon from "./PlatformIcon"; // Ensure you have this helper!
+import Link from "next/link";
 
 interface Review {
   id: number;
@@ -61,9 +62,12 @@ export default function RecentMentions({ reviews }: { reviews: Review[] }) {
       ))}
       
       <div className="p-3 text-center border-t">
-        <button className="text-xs text-blue-600 font-medium hover:underline">
+        <Link 
+            href="/reviews" 
+            className="text-xs text-blue-600 font-medium hover:underline block w-full"
+        >
             View All Reviews
-        </button>
+        </Link>
       </div>
     </div>
   );
