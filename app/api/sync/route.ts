@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
-import { ApifyClient } from "apify-client";
+import { ApifyClient } from "apify-client"; 
 
 // Initialize Apify (Safe initialization even if key is missing)
 const apifyClient = new ApifyClient({
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
       // 🕷️ STRATEGY B: APIFY SCRAPER (Fallback & Other Platforms)
       // ==================================================
       
-      if (url || (platform === 'google' && reviewsData.length === 0)) {
+      if (url || (platform === 'google' && reviewsData.length === 0) || ['booking', 'booking.com'].includes(platform)) {
            
            const targetUrl = url || connectedLabel || "business review";
            console.log(`🕷️ Starting Apify Scraper for ${platform}...`);
@@ -89,6 +89,7 @@ export async function POST(req: Request) {
                let actorId = "";
                let input = {};
 
+               // --- CONFIG: CHOOSE THE RIGHT SCRAPER ROBOT ---
                if (platform === 'google') {
                    actorId = "compass/google-maps-reviews-scraper"; 
                    input = { searchStrings: [targetUrl], maxReviews: 20, language: "en" };
@@ -109,11 +110,21 @@ export async function POST(req: Request) {
                     actorId = "apify/zillow-scraper";
                     input = { search: targetUrl, maxItems: 20 };
                }
+               // 🏨 NEW: BOOKING.COM SUPPORT
+               else if (platform === 'booking' || platform === 'booking.com') {
+                   actorId = "voyager/booking-reviews-scraper";
+                   input = { 
+                       startUrls: [{ url: targetUrl }], 
+                       maxReviews: 20, 
+                       language: "en-us" 
+                   };
+               }
 
+               // --- EXECUTE SCRAPER ---
                if (actorId && process.env.APIFY_API_TOKEN) {
                    const run = await apifyClient.actor(actorId).call(input);
                    
-                   // ✅ FIX: Use .listItems() instead of .list()
+                   // ✅ Use .listItems() (Correct method for new Apify SDK)
                    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
                    if (items && items.length > 0) {
@@ -139,6 +150,7 @@ export async function POST(req: Request) {
            }
       }
       
+      // If we still have no data, generate mock
       if (reviewsData.length === 0 && !['google'].includes(platform)) {
           reviewsData = generateFallbackReviews(platform, connectedLabel);
       }
