@@ -115,8 +115,7 @@ export async function POST(req: Request) {
                    actorId = "voyager/booking-reviews-scraper";
                    input = { 
                        startUrls: [{ url: targetUrl }], 
-                       maxReviews: 20, 
-                       language: "en-us" 
+                       maxReviews: 5000 // Increased limit since you have 261 reviews!
                    };
                }
 
@@ -129,20 +128,37 @@ export async function POST(req: Request) {
 
                    if (items && items.length > 0) {
                         reviewsData = items.map((item: any) => {
-                            // 🔧 FIX: Handle Booking.com 1-10 Scale
-                            let finalRating = item.stars || item.rating || 0;
-                            
-                            // If it's Booking.com and rating is > 5 (e.g., 8.5/10), convert to 5-star scale
-                            if ((platform === 'booking' || platform === 'booking.com') && finalRating > 5) {
+                            // 1. FIX RATING: Convert 10-point scale to 5-point
+                            let finalRating = item.rating || item.stars || 0;
+                            if (typeof finalRating === 'string') finalRating = parseFloat(finalRating);
+                            // If it's Booking.com (1-10), divide by 2
+                            if (platform.includes('booking') && finalRating > 5) {
                                 finalRating = finalRating / 2;
                             }
 
+                            // 2. FIX CONTENT: Stitch together the split text fields from Booking.com
+                            let contentParts = [];
+                            if (item.reviewTitle) contentParts.push(`"${item.reviewTitle}"`);
+                            if (item.reviewTextParts?.Liked) contentParts.push(`✅ ${item.reviewTextParts.Liked}`);
+                            if (item.reviewTextParts?.Disliked) contentParts.push(`❌ ${item.reviewTextParts.Disliked}`);
+                            
+                            // Fallback for other scrapers that use simple 'text'
+                            const finalContent = contentParts.length > 0 
+                                ? contentParts.join("\n") 
+                                : (item.text || item.description || item.reviewText || "(No text provided)");
+
+                            // 3. FIX AUTHOR: Check 'userName' specifically for Booking
+                            const finalAuthor = item.userName || item.reviewerName || item.user?.name || item.name || "Anonymous Guest";
+
+                            // 4. FIX DATE: Ensure valid date object
+                            const finalDate = item.date ? new Date(item.date) : new Date();
+
                             return {
                                 rating: finalRating,
-                                content: item.text || item.description || item.reviewText || "(No text)",
-                                author: item.reviewerName || item.user?.name || item.name || "Anonymous",
+                                content: finalContent,
+                                author: finalAuthor,
                                 sentiment: finalRating >= 4 ? 'positive' : (finalRating <= 2 ? 'negative' : 'neutral'),
-                                created_at: item.date ? new Date(item.date) : new Date()
+                                created_at: finalDate
                             };
                         });
                         console.log(`✅ Scraped ${reviewsData.length} reviews via Apify`);
