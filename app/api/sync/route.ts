@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
-import { ApifyClient } from "apify-client"; 
+import { ApifyClient } from "apify-client";
 
 // Initialize Apify (Safe initialization even if key is missing)
 const apifyClient = new ApifyClient({
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
                     actorId = "apify/zillow-scraper";
                     input = { search: targetUrl, maxItems: 20 };
                }
-               // 🏨 NEW: BOOKING.COM SUPPORT
+               // 🏨 BOOKING.COM SUPPORT
                else if (platform === 'booking' || platform === 'booking.com') {
                    actorId = "voyager/booking-reviews-scraper";
                    input = { 
@@ -128,13 +128,23 @@ export async function POST(req: Request) {
                    const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
 
                    if (items && items.length > 0) {
-                        reviewsData = items.map((item: any) => ({
-                            rating: item.stars || item.rating || 5,
-                            content: item.text || item.description || item.reviewText || "(No text)",
-                            author: item.reviewerName || item.user?.name || item.name || "Anonymous",
-                            sentiment: (item.stars || item.rating || 0) >= 4 ? 'positive' : 'negative',
-                            created_at: item.date ? new Date(item.date) : new Date()
-                        }));
+                        reviewsData = items.map((item: any) => {
+                            // 🔧 FIX: Handle Booking.com 1-10 Scale
+                            let finalRating = item.stars || item.rating || 0;
+                            
+                            // If it's Booking.com and rating is > 5 (e.g., 8.5/10), convert to 5-star scale
+                            if ((platform === 'booking' || platform === 'booking.com') && finalRating > 5) {
+                                finalRating = finalRating / 2;
+                            }
+
+                            return {
+                                rating: finalRating,
+                                content: item.text || item.description || item.reviewText || "(No text)",
+                                author: item.reviewerName || item.user?.name || item.name || "Anonymous",
+                                sentiment: finalRating >= 4 ? 'positive' : (finalRating <= 2 ? 'negative' : 'neutral'),
+                                created_at: item.date ? new Date(item.date) : new Date()
+                            };
+                        });
                         console.log(`✅ Scraped ${reviewsData.length} reviews via Apify`);
                    }
                } 
