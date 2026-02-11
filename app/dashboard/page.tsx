@@ -9,14 +9,14 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import StatCard from '@/components/StatCard';
 import SentimentChart from '@/components/SentimentChart';
-import RecentMentions from '@/components/RecentMentions';
+import RecentMentions from '@/components/RecentMentions'; // ✅ Matches your component
 import AddReviewModal from '@/components/AddReviewModal';
 import SLAChart from '@/components/SLAChart';
 import PlatformSelector from '@/components/PlatformSelector';
 import AddPlatformModal from '@/components/AddPlatformModal';
 import ConnectCard from '@/components/ConnectCard';
 import GoogleConnect from '@/components/GoogleConnect';
-import { MASTER_PLATFORMS } from '@/lib/platforms';
+import { MASTER_PLATFORMS } from '@/lib/platforms'; // Ensure this path is correct
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all'); 
-  const [activePlatformIds, setActivePlatformIds] = useState<string[]>(['google', 'facebook', 'yelp']);
+  const [activePlatformIds, setActivePlatformIds] = useState<string[]>(['google', 'booking', 'yelp']);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   const [allPlatforms, setAllPlatforms] = useState<any[]>(MASTER_PLATFORMS);
@@ -73,7 +73,7 @@ export default function DashboardPage() {
     localStorage.setItem('current_view_platform', id);
   };
 
-  // 5. FETCH DATA
+  // 5. FETCH REAL DATA FROM API
   useEffect(() => {
     if (status === 'authenticated') {
       async function fetchData() {
@@ -83,6 +83,7 @@ export default function DashboardPage() {
           
           const platformQuery = selectedPlatform === 'all' ? '' : `&platform=${selectedPlatform}`;
           
+          // ✅ Calls the new API route we are about to create
           const res = await fetch(`/api/dashboard/stats?t=${Date.now()}${platformQuery}`, {
              cache: 'no-store'
           });
@@ -124,7 +125,7 @@ export default function DashboardPage() {
 
   if (!session) return null;
 
-  // ✅ FIX: Ensure all properties exist to prevent crashes
+  // ✅ Default data to prevent crashes
   const stats = data || {
     totalMentions: 0,
     positive: 0,
@@ -164,6 +165,8 @@ export default function DashboardPage() {
                     <p className="text-xs text-gray-400 mt-1">Viewing phone & in-person logs</p>
                 </div>
              )}
+             
+             {/* ✅ SHOW CONNECT CARD ONLY WHEN A SPECIFIC PLATFORM IS SELECTED */}
              {selectedPlatform !== 'all' && selectedPlatform !== 'manual' && (
                 <div className="max-w-md animate-in fade-in slide-in-from-top-2 duration-300">
                   {selectedPlatform === 'google' ? (
@@ -173,6 +176,7 @@ export default function DashboardPage() {
                        platform={selectedPlatform} 
                        label={allPlatforms.find(p => p.id === selectedPlatform)?.label || "Platform"} 
                        color="bg-blue-600"
+                       connectedLabel={stats.connectedAccounts?.[selectedPlatform]} // Optional: Pass connected name
                      />
                   )}
                 </div>
@@ -188,12 +192,12 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 flex flex-col gap-6">
-               {/* 🚨 FIX: Pass 'data' prop correctly using distribution data */}
                <SLAChart data={stats.platformDistribution || []} />
                <SentimentChart data={stats.sentimentDistribution || []} />
             </div>
             <div className="lg:col-span-1">
-               <RecentMentions data={stats.recentMentions || []} />
+               {/* 🚀 FIXED: Passed 'reviews' prop to match your component */}
+               <RecentMentions reviews={stats.recentMentions || []} />
             </div>
           </div>
         </main>

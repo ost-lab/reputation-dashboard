@@ -13,71 +13,92 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const platformFilter = searchParams.get('platform'); 
-
-    // 🔍 DEBUG LOG
-    console.log(`🔍 API REQUEST - User: ${session.user.id} | Filter: ${platformFilter}`);
+    const platformFilter = searchParams.get('platform'); // 'google', 'booking', or undefined
 
     const client = await pool.connect();
+
     try {
-      const userId = session.user.id;
-      
-      // 1. Build Stats Query Logic
-      let filterClause = "";
-      let queryParams = [userId];
+      // 1. Build Query Conditions
+      let queryParams: any[] = [session.user.id];
+      let whereClause = "WHERE user_id = $1";
 
       if (platformFilter && platformFilter !== 'all') {
-        filterClause = "AND LOWER(platform) = LOWER($2)";
-        queryParams.push(platformFilter);
+          whereClause += " AND platform = $2";
+          queryParams.push(platformFilter);
       }
 
-      // 2. Execute Stats Queries
-      const statsQuery = await client.query(`
-        SELECT 
-          COUNT(*) as total_mentions,
-          AVG(rating) as avg_rating,
-          SUM(CASE WHEN sentiment = 'positive' THEN 1 ELSE 0 END) as positive_count,
-          SUM(CASE WHEN sentiment = 'negative' THEN 1 ELSE 0 END) as negative_count
-        FROM reviews
-        WHERE user_id = $1 ${filterClause}
+      // 2. Fetch Stats
+      // A. Total Count
+      const countRes = await client.query(`SELECT COUNT(*) FROM reviews ${whereClause}`, queryParams);
+      const totalMentions = parseInt(countRes.rows[0].count);
+
+      // B. Positive Count
+      const posRes = await client.query(`SELECT COUNT(*) FROM reviews ${whereClause} AND sentiment = 'positive'`, queryParams);
+      const positive = parseInt(posRes.rows[0].count);
+
+      // C. Negative Count
+      const negRes = await client.query(`SELECT COUNT(*) FROM reviews ${whereClause} AND sentiment = 'negative'`, queryParams);
+      const negative = parseInt(negRes.rows[0].count);
+
+      // D. Avg Rating
+      const avgRes = await client.query(`SELECT AVG(rating) FROM reviews ${whereClause}`, queryParams);
+      const avgRating = parseFloat(avgRes.rows[0].avg || "0").toFixed(1);
+
+      // E. Recent Mentions (Limit 10)
+      const reviewsRes = await client.query(`
+          SELECT * FROM reviews 
+          ${whereClause} 
+          ORDER BY created_at DESC 
+          LIMIT 10
       `, queryParams);
 
-      const stats = statsQuery.rows[0];
-
-      const recentQuery = await client.query(`
-        SELECT * FROM reviews 
-        WHERE user_id = $1 ${filterClause}
-        ORDER BY created_at DESC 
-        LIMIT 5
-      `, queryParams);
-
-      // 3. ✅ NEW: Get ALL Connected Platforms for this user
-      // This tells the frontend which tabs to force-open
-      const connectedQuery = await client.query(`
-        SELECT DISTINCT platform FROM connected_accounts 
-        WHERE user_id = $1
-      `, [userId]);
+      // F. Connected Platforms (To auto-activate tabs)
+      const connectedRes = await client.query(
+          "SELECT platform, connected_label FROM connected_accounts WHERE user_id = $1", 
+          [session.user.id]
+      );
+      const connectedPlatforms = connectedRes.rows.map(r => r.platform);
       
-      const connectedPlatforms = connectedQuery.rows.map(row => row.platform);
+      // Map connected labels for UI
+      const connectedAccounts: Record<string, string> = {};
+      connectedRes.rows.forEach(r => {
+          connectedAccounts[r.platform] = r.connected_label;
+      });
 
-      console.log(`✅ API SUCCESS - Found ${stats.total_mentions} reviews`);
+      // G. Platform Distribution (For Charts)
+      const distRes = await client.query(`
+          SELECT platform, COUNT(*) as count 
+          FROM reviews 
+          WHERE user_id = $1 
+          GROUP BY platform
+      `, [session.user.id]);
+      
+      const platformDistribution = distRes.rows.map(r => ({
+          name: r.platform,
+          value: parseInt(r.count)
+      }));
 
       return NextResponse.json({
-        totalMentions: parseInt(stats.total_mentions || '0'),
-        avgRating: parseFloat(stats.avg_rating || '0').toFixed(1),
-        positive: parseInt(stats.positive_count || '0'),
-        negative: parseInt(stats.negative_count || '0'),
-        recentMentions: recentQuery.rows,
-        // Send the list of connected apps back to UI
-        connectedPlatforms: connectedPlatforms
+        totalMentions,
+        positive,
+        negative,
+        avgRating,
+        recentMentions: reviewsRes.rows,
+        connectedPlatforms,
+        connectedAccounts,
+        platformDistribution,
+        sentimentDistribution: [
+            { name: "Positive", value: positive, color: "#22c55e" },
+            { name: "Neutral", value: totalMentions - (positive + negative), color: "#eab308" },
+            { name: "Negative", value: negative, color: "#ef4444" }
+        ]
       });
 
     } finally {
       client.release();
     }
-
   } catch (error) {
-    console.error("Stats API Error:", error);
+    console.error("Dashboard Stats Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
