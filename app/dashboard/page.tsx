@@ -17,7 +17,7 @@ import PlatformSelector from '@/components/PlatformSelector';
 import AddPlatformModal from '@/components/AddPlatformModal';
 import ConnectCard from '@/components/ConnectCard';
 import GoogleConnect from '@/components/GoogleConnect';
-import ReviewSummary from '@/components/ReviewSummary'; // <--- NEW: Import the metadata component
+import ReviewSummary from '@/components/ReviewSummary'; 
 
 import { MASTER_PLATFORMS } from '@/lib/platforms';
 
@@ -86,7 +86,6 @@ export default function DashboardPage() {
 
           const platformQuery = selectedPlatform === 'all' ? '' : `&platform=${selectedPlatform}`;
 
-          // Note: Ensure your /api/dashboard/stats route aggregates Booking.com data too!
           const res = await fetch(`/api/dashboard/stats?t=${Date.now()}${platformQuery}`, {
             cache: 'no-store'
           });
@@ -97,7 +96,6 @@ export default function DashboardPage() {
 
             // Auto-Add Connected Platforms to Tabs
             if (json.connectedPlatforms) {
-               // Extract keys (platform IDs) from the connected object
                const connectedKeys = Object.keys(json.connectedPlatforms);
                if(connectedKeys.length > 0) {
                   setActivePlatformIds(prev => {
@@ -132,7 +130,6 @@ export default function DashboardPage() {
 
   if (!session) return null;
 
-  // Default data to prevent crashes
   const stats = data || {
     totalMentions: 0,
     positive: 0,
@@ -141,10 +138,9 @@ export default function DashboardPage() {
     recentMentions: [],
     platformDistribution: [],
     sentimentDistribution: [],
-    connectedAccounts: {} // Ensure this exists
+    connectedAccounts: {} 
   };
 
-  // Helper to check if current platform is connected
   const isCurrentPlatformConnected = stats.connectedAccounts?.[selectedPlatform];
 
   return (
@@ -188,8 +184,8 @@ export default function DashboardPage() {
                   <ConnectCard
                     platform={selectedPlatform}
                     label={allPlatforms.find(p => p.id === selectedPlatform)?.label || "Platform"}
-                    color={selectedPlatform === 'booking' ? "bg-blue-900" : "bg-blue-600"} // Booking Blue
-                    connectedLabel={null}
+                    color={selectedPlatform === 'booking' ? "bg-blue-900" : "bg-blue-600"}
+                    connectedLabel={undefined} // ✅ FIXED: Changed null to undefined
                   />
                 )}
               </div>
@@ -207,10 +203,10 @@ export default function DashboardPage() {
           {/* DETAILED CONTENT AREA */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* LEFT COLUMN: Charts & Specific Platform Data */}
+            {/* LEFT COLUMN */}
             <div className="lg:col-span-2 flex flex-col gap-6">
               
-              {/* NEW: Booking.com Detailed Breakdown (Only shows if Booking selected + connected) */}
+              {/* NEW: Booking.com Detailed Breakdown */}
               {selectedPlatform === 'booking' && isCurrentPlatformConnected && (
                  <div className="animate-in fade-in">
                     <ReviewSummary hotelId={stats.connectedAccounts.booking} />
@@ -221,7 +217,7 @@ export default function DashboardPage() {
               <SentimentChart data={stats.sentimentDistribution || []} />
             </div>
 
-            {/* RIGHT COLUMN: Recent Mentions */}
+            {/* RIGHT COLUMN */}
             <div className="lg:col-span-1">
               <RecentMentions reviews={stats.recentMentions || []} />
             </div>
