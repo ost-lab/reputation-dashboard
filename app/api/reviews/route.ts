@@ -1,24 +1,24 @@
-import { NextResponse, NextRequest } from "next/server"; // 1. Import NextRequest
+import { NextResponse, NextRequest } from "next/server"; // Import NextRequest to fix the type error
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
 
+// Force dynamic so it doesn't cache old reviews
 export const dynamic = 'force-dynamic';
 
-// 2. Add the type ': NextRequest' to the parameter
 export async function GET(req: NextRequest) {
   try {
+    // 1. Check if user is logged in
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) { // Changed .id to .email just in case, or keep .id if your session has it
+    if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const client = await pool.connect();
 
     try {
-      // Get the Hotel ID from your DB
-      // Note: Ensure your 'users' table actually has 'booking_hotel_id'
-      // If session.user.id is missing, check your NextAuth configuration
+      // 2. Get the Hotel ID from your database
+      // Make sure your database has a 'booking_hotel_id' column in the users table!
       const userResult = await client.query(
         `SELECT booking_hotel_id FROM users WHERE email = $1`, 
         [session.user.email]
@@ -30,14 +30,15 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "No Booking.com Hotel ID linked to this account." }, { status: 400 });
       }
 
-      // Fetch from RapidAPI
+      // 3. Call Booking.com API
       const rapidApiKey = process.env.RAPIDAPI_KEY;
       const rapidApiHost = 'booking-com.p.rapidapi.com';
       
       if (!rapidApiKey) {
-          throw new Error("RAPIDAPI_KEY is missing from environment variables");
+         return NextResponse.json({ error: "API Key missing" }, { status: 500 });
       }
 
+      // Using the endpoint from your docs: @Reviews of the hotel
       const url = `https://${rapidApiHost}/v1/hotels/reviews?hotel_id=${hotelId}&locale=en-gb&sort_type=SORT_MOST_RELEVANT&customer_type=total&language_filter=en-gb,en-us`;
 
       const apiResponse = await fetch(url, {
@@ -54,15 +55,15 @@ export async function GET(req: NextRequest) {
 
       const apiData = await apiResponse.json();
       
+      // 4. Send the reviews list to your frontend
       return NextResponse.json({ 
-        source: 'booking.com',
         reviews: apiData.result || [] 
       });
 
     } finally {
       client.release();
     }
-  } catch (error: any) { // Type 'error' as 'any' to avoid "Object is of type 'unknown'"
+  } catch (error: any) {
     console.error("Reviews API Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
