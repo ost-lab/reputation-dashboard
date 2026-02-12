@@ -94,6 +94,18 @@ export default function DashboardPage() {
             const json = await res.json();
             setData(json);
 
+const res = await fetch(`/api/dashboard/stats?...`); // Your existing stats call
+
+// ALSO fetch the reviews specifically if they aren't included in stats
+const reviewsRes = await fetch('/api/reviews');
+const reviewsData = await reviewsRes.json();
+
+setData(prev => ({
+    ...prev,
+    recentMentions: reviewsData.reviews || [] // Combine them here
+}));
+
+
             // Auto-Add Connected Platforms to Tabs
             if (json.connectedPlatforms) {
                const connectedKeys = Object.keys(json.connectedPlatforms);

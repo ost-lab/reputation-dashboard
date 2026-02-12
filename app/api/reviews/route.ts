@@ -1,70 +1,79 @@
-import { NextResponse, NextRequest } from "next/server"; // Import NextRequest to fix the type error
+import { NextResponse, NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import pool from "@/lib/db";
 
-// Force dynamic so it doesn't cache old reviews
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Check if user is logged in
+    console.log("🔍 [API] Starting Review Fetch...");
+
+    // 1. Auth Check
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
+      console.log("❌ [API] No session found.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const client = await pool.connect();
 
     try {
-      // 2. Get the Hotel ID from your database
-      // Make sure your database has a 'booking_hotel_id' column in the users table!
+      // 2. Get Hotel ID
       const userResult = await client.query(
         `SELECT booking_hotel_id FROM users WHERE email = $1`, 
         [session.user.email]
       );
-
+      
       const hotelId = userResult.rows[0]?.booking_hotel_id;
+      console.log("🏨 [API] Found Hotel ID:", hotelId);
 
       if (!hotelId) {
-        return NextResponse.json({ error: "No Booking.com Hotel ID linked to this account." }, { status: 400 });
+        console.log("⚠️ [API] No Hotel ID linked to user.");
+        return NextResponse.json({ reviews: [] }); // Return empty array, not error
       }
 
-      // 3. Call Booking.com API
+      // 3. Call RapidAPI
       const rapidApiKey = process.env.RAPIDAPI_KEY;
-      const rapidApiHost = 'booking-com.p.rapidapi.com';
-      
-      if (!rapidApiKey) {
-         return NextResponse.json({ error: "API Key missing" }, { status: 500 });
-      }
+      if (!rapidApiKey) console.error("❌ [API] RAPIDAPI_KEY is missing!");
 
-      // Using the endpoint from your docs: @Reviews of the hotel
-      const url = `https://${rapidApiHost}/v1/hotels/reviews?hotel_id=${hotelId}&locale=en-gb&sort_type=SORT_MOST_RELEVANT&customer_type=total&language_filter=en-gb,en-us`;
+      const url = `https://booking-com.p.rapidapi.com/v1/hotels/reviews?hotel_id=${hotelId}&locale=en-gb&sort_type=SORT_MOST_RELEVANT&customer_type=total&language_filter=en-gb,en-us`;
+      
+      console.log("🚀 [API] Calling Booking.com...", url);
 
       const apiResponse = await fetch(url, {
         method: 'GET',
         headers: {
-          'x-rapidapi-key': rapidApiKey,
-          'x-rapidapi-host': rapidApiHost
+          'x-rapidapi-key': rapidApiKey as string,
+          'x-rapidapi-host': 'booking-com.p.rapidapi.com'
         }
       });
 
       if (!apiResponse.ok) {
-        throw new Error(`Booking API Error: ${apiResponse.status}`);
+        console.error(`❌ [API] RapidAPI Error: ${apiResponse.status}`);
+        return NextResponse.json({ error: "External API Error" }, { status: 500 });
       }
 
       const apiData = await apiResponse.json();
-      
-      // 4. Send the reviews list to your frontend
-      return NextResponse.json({ 
-        reviews: apiData.result || [] 
-      });
+      console.log(`✅ [API] Received ${apiData.result?.length || 0} reviews from Booking.com`);
+
+      // 4. Transform Data for Frontend
+      const formattedReviews = (apiData.result || []).map((r: any, index: number) => ({
+        id: r.review_id || index,
+        author_name: r.author.name || "Guest",
+        rating: Number(r.average_score),
+        content: r.pros || r.cons || r.title || "No comment",
+        platform: "booking",
+        created_at: r.date // Keep as string or convert: new Date(r.date)
+      }));
+
+      return NextResponse.json({ reviews: formattedReviews });
 
     } finally {
       client.release();
     }
   } catch (error: any) {
-    console.error("Reviews API Error:", error);
+    console.error("🔥 [API] Critical Error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
