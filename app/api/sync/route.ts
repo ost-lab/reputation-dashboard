@@ -77,10 +77,77 @@ export async function POST(req: Request) {
       } 
 
       // ==================================================
+      // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
+      // ==================================================
+    // ==================================================
+      // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
+      // ==================================================
+      // ==================================================
+      // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
+      // ==================================================
+      if ((platform === 'booking' || platform === 'booking.com') && process.env.RAPIDAPI_KEY && reviewsData.length === 0) {
+          console.log("⚡ Trying RapidAPI (Free Tier)...");
+          try {
+              let hotelId = "";
+
+              // 1. CHECK INPUT TYPE
+              // If the user pasted a pure number (e.g., "5936336"), use it directly.
+              if (/^\d+$/.test(url.trim())) {
+                  hotelId = url.trim();
+                  console.log(`✅ User provided Direct Hotel ID: ${hotelId}`);
+              } 
+              // Otherwise, assume it's a URL and try to find the ID
+              else {
+                  const nameMatch = url.match(/hotel\/[a-z]+\/([^.]+)/);
+                  const hotelName = nameMatch ? nameMatch[1].replace(/-/g, ' ') : "Hotel";
+                  
+                  console.log(`🔎 Searching RapidAPI for name: ${hotelName}`);
+
+                  const searchRes = await fetch(`https://${process.env.RAPIDAPI_HOST}/v1/hotels/locations?name=${hotelName}&locale=en-gb`, {
+                      headers: {
+                          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY!,
+                          'X-RapidAPI-Host': process.env.RAPIDAPI_HOST!
+                      }
+                  });
+                  const searchData = await searchRes.json();
+                  hotelId = searchData.find((d: any) => d.dest_type === 'hotel')?.dest_id;
+              }
+
+              // 2. FETCH REVIEWS (If we have an ID)
+              if (hotelId) {
+                  console.log(`✅ Fetching reviews for Hotel ID: ${hotelId}...`);
+                  
+                  const reviewRes = await fetch(`https://${process.env.RAPIDAPI_HOST}/v1/hotels/reviews?hotel_id=${hotelId}&locale=en-gb&sort_type=SORT_MOST_RECENT_FIRST`, {
+                      headers: {
+                          'X-RapidAPI-Key': process.env.RAPIDAPI_KEY!,
+                          'X-RapidAPI-Host': process.env.RAPIDAPI_HOST!
+                      }
+                  });
+                  const reviewData = await reviewRes.json();
+                  
+                  if (reviewData.result) {
+                      reviewsData = reviewData.result.map((item: any) => ({
+                          rating: item.average_score ? (item.average_score / 2) : 0, 
+                          content: item.pros ? `✅ ${item.pros}\n❌ ${item.cons}` : (item.title || "No text"),
+                          author: item.author?.name || "Booking Guest",
+                          sentiment: item.average_score >= 8 ? 'positive' : 'neutral',
+                          created_at: item.date ? new Date(item.date) : new Date()
+                      }));
+                      console.log(`✅ RapidAPI Success: ${reviewsData.length} reviews`);
+                  }
+              } else {
+                  console.warn("❌ RapidAPI could not find a hotel ID for this input.");
+              }
+
+          } catch (rapidError) {
+              console.error("❌ RapidAPI Failed:", rapidError);
+          }
+      }
+      // ==================================================
       // 🕷️ STRATEGY B: APIFY SCRAPER (Fallback & Other Platforms)
       // ==================================================
       
-      if (url || (platform === 'google' && reviewsData.length === 0) || ['booking', 'booking.com'].includes(platform)) {
+      if (reviewsData.length === 0 && (url || (platform === 'google' && reviewsData.length === 0) || ['booking', 'booking.com'].includes(platform))) {
            
            const targetUrl = url || connectedLabel || "business review";
            console.log(`🕷️ Starting Apify Scraper for ${platform}...`);

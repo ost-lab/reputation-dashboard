@@ -134,7 +134,7 @@ export default function ConnectCard({ platform, label, color, connectedLabel }: 
 
         <input 
           type="text" 
-          placeholder={`https://www.${platform}.com/...`}
+          placeholder={platform === 'booking' ? "Paste URL or Hotel ID (e.g. 5936336)" : `https://www.${platform}.com/...`} // 👈 Updated
           className="w-full text-xs border rounded p-2 mb-3 focus:ring-2 focus:ring-blue-500 outline-none"
           value={inputUrl}
           onChange={(e) => setInputUrl(e.target.value)}
