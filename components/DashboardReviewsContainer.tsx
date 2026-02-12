@@ -51,4 +51,4 @@ export default function DashboardReviewsContainer() {
 
   // 3. Pass the transformed data to your component
   return <RecentMentions reviews={reviews} />;
-}s
+}
