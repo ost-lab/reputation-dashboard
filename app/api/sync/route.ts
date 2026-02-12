@@ -79,12 +79,7 @@ export async function POST(req: Request) {
       // ==================================================
       // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
       // ==================================================
-    // ==================================================
-      // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
-      // ==================================================
-      // ==================================================
-      // 🟢 STRATEGY C: RAPIDAPI (The Free Option for Booking)
-      // ==================================================
+
       if ((platform === 'booking' || platform === 'booking.com') && process.env.RAPIDAPI_KEY && reviewsData.length === 0) {
           console.log("⚡ Trying RapidAPI (Free Tier)...");
           try {
