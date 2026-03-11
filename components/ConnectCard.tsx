@@ -27,17 +27,9 @@ export default function ConnectCard({ platform, label, color, connectedLabel }: 
         setAccountName(connectedLabel);
         return;
     }
-
-    // 2. FALLBACK: Check Local Storage (for instant UI feedback before DB loads)
-    const savedName = localStorage.getItem(storageKey);
-    const savedUrl = localStorage.getItem(urlKey);
-    
-    if (savedName) {
-      setIsConnected(true);
-      setAccountName(savedName);
-      if (savedUrl) setInputUrl(savedUrl);
-    }
-  }, [platform, storageKey, urlKey, connectedLabel]); 
+    setIsConnected(false);
+    setAccountName('');
+  }, [platform, connectedLabel]); 
 
   const handleConnect = async () => {
     if (!inputUrl) return alert("Please paste a link first.");
@@ -52,24 +44,22 @@ export default function ConnectCard({ platform, label, color, connectedLabel }: 
       const tempName = "Connected Profile"; 
       setAccountName(tempName);
       
-      // Save locally for speed
-      localStorage.setItem(storageKey, tempName);
-      localStorage.setItem(urlKey, inputUrl); 
-      
       setStatus('idle');
     }, 1000);
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     if(!confirm("Disconnect this account?")) return;
     
-    // Clear Local Storage
-    localStorage.removeItem(storageKey);
-    localStorage.removeItem(urlKey);
-    
-    // TODO: You might want to add an API call here to delete from DB:
-    // fetch('/api/disconnect', { method: 'POST', body: ... })
-    
+    try {
+      await fetch('/api/connect/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform })
+      });
+    } catch (e) {
+      console.error(e);
+    }    
     setIsConnected(false);
     setAccountName('');
     setInputUrl('');

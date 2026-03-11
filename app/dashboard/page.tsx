@@ -42,38 +42,49 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // 2. Refresh Definitions
-  const refreshPlatformDefinitions = () => {
-    if (typeof window !== 'undefined') {
-      const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
-      if (customDefs.length > 0) {
-        setAllPlatforms([...MASTER_PLATFORMS, ...customDefs]);
-      } else {
+  // 3. Load Settings
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const settings = await res.json();
+          if (settings.my_active_platforms) {
+            setActivePlatformIds(settings.my_active_platforms);
+          }
+          if (settings.current_view_platform) {
+            setSelectedPlatform(settings.current_view_platform);
+          }
+          if (settings.custom_platform_definitions && settings.custom_platform_definitions.length > 0) {
+            setAllPlatforms([...MASTER_PLATFORMS, ...settings.custom_platform_definitions]);
+          } else {
+            setAllPlatforms(MASTER_PLATFORMS);
+          }
+        } else {
+          setAllPlatforms(MASTER_PLATFORMS);
+        }
+      } catch (e) {
         setAllPlatforms(MASTER_PLATFORMS);
       }
     }
-  };
-
-  // 3. Load Settings
-  useEffect(() => {
-    refreshPlatformDefinitions();
-    const savedActive = localStorage.getItem('my_active_platforms');
-    if (savedActive) {
-      setActivePlatformIds(JSON.parse(savedActive));
-    }
-    const savedSelection = localStorage.getItem('current_view_platform');
-    if (savedSelection) setSelectedPlatform(savedSelection);
+    loadSettings();
   }, []);
 
   // 4. Handlers
-  const handleSavePlatforms = (newIds: string[]) => {
+  const handleSavePlatforms = async (newIds: string[]) => {
     setActivePlatformIds(newIds);
-    localStorage.setItem('my_active_platforms', JSON.stringify(newIds));
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ my_active_platforms: newIds })
+    });
   };
 
-  const handlePlatformChange = (id: string) => {
+  const handlePlatformChange = async (id: string) => {
     setSelectedPlatform(id);
-    localStorage.setItem('current_view_platform', id);
+    await fetch('/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ current_view_platform: id })
+    });
   };
 
   // 5. FETCH REAL DATA FROM API
@@ -94,25 +105,13 @@ export default function DashboardPage() {
             const json = await res.json();
             setData(json);
 
-const res = await fetch(`/api/dashboard/stats?...`); // Your existing stats call
-
-// ALSO fetch the reviews specifically if they aren't included in stats
-const reviewsRes = await fetch('/api/reviews');
-const reviewsData = await reviewsRes.json();
-
-setData(prev => ({
-    ...prev,
-    recentMentions: reviewsData.reviews || [] // Combine them here
-}));
-
-
             // Auto-Add Connected Platforms to Tabs
             if (json.connectedPlatforms) {
                const connectedKeys = Object.keys(json.connectedPlatforms);
                if(connectedKeys.length > 0) {
                   setActivePlatformIds(prev => {
                     const merged = Array.from(new Set([...prev, ...connectedKeys]));
-                    localStorage.setItem('my_active_platforms', JSON.stringify(merged));
+                    fetch('/api/settings', { method: 'PATCH', body: JSON.stringify({ my_active_platforms: merged }) });
                     return merged;
                   });
                }
