@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
-import Header from '../../components/Header';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
 import { Check, CreditCard, Zap, Shield, Crown, Loader2 } from 'lucide-react';
 
 export default function BillingPage() {
@@ -10,20 +10,36 @@ export default function BillingPage() {
   const [currentPlan, setCurrentPlan] = useState('free'); 
 
   useEffect(() => {
-    const savedPlan = localStorage.getItem('user_plan');
-    if (savedPlan) setCurrentPlan(savedPlan);
+    async function loadPlan() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const settings = await res.json();
+          if (settings.user_plan) setCurrentPlan(settings.user_plan);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    loadPlan();
   }, []);
 
   // FIX: Added ': string' here
-  const handleUpgrade = (planId: string) => {
+  const handleUpgrade = async (planId: string) => {
     setLoading(true);
-    
-    setTimeout(() => {
+    try {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_plan: planId })
+      });
       setCurrentPlan(planId);
-      localStorage.setItem('user_plan', planId);
-      setLoading(false);
       alert(`Successfully upgraded to ${planId.toUpperCase()} Plan!`);
-    }, 1500);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

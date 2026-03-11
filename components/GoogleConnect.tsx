@@ -31,9 +31,12 @@ export default function GoogleConnect() {
            setConnectedEmail(data.email);
         }
         
-        // Load the saved Maps URL from LocalStorage (Persist across reloads)
-        const savedUrl = localStorage.getItem("google_maps_url");
-        if (savedUrl) setMapsUrl(savedUrl);
+        // Load the saved Maps URL from DB
+        const settingsRes = await fetch('/api/settings');
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          if (settings.google_maps_url) setMapsUrl(settings.google_maps_url);
+        }
 
       } catch (e) {
         console.error("Connection check failed", e);
@@ -49,8 +52,14 @@ export default function GoogleConnect() {
         return;
     }
     
-    // ✅ Save the Maps URL locally before connecting
-    if (mapsUrl) localStorage.setItem("google_maps_url", mapsUrl);
+    // ✅ Save the Maps URL to DB before connecting
+    if (mapsUrl) {
+        fetch('/api/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ google_maps_url: mapsUrl })
+        });
+    }
 
     setLoading(true);
     const encodedEmail = encodeURIComponent(manualEmail);
@@ -66,8 +75,7 @@ export default function GoogleConnect() {
         setIsConnected(false);
         setConnectedEmail(null);
         setManualEmail("");
-        // Optional: Clear maps URL on disconnect? 
-        // localStorage.removeItem("google_maps_url"); 
+        
         router.refresh();
     } catch (e) {
         alert("Failed to disconnect");
@@ -79,7 +87,13 @@ export default function GoogleConnect() {
   const handleSync = async () => {
     setSyncing(true);
     // ✅ Save URL again just in case user edited it
-    if (mapsUrl) localStorage.setItem("google_maps_url", mapsUrl);
+    if (mapsUrl) {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_maps_url: mapsUrl })
+      });
+    }
 
     try {
       const res = await fetch('/api/sync', {

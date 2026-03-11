@@ -1,19 +1,21 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Sidebar from '../../components/Sidebar';
-import Header from '../../components/Header';
-import { Search, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Plus, Filter, ChevronDown } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import { Search, TrendingUp, TrendingDown, Swords, Trophy, Trash2, Plus, Filter, ChevronDown, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { MASTER_PLATFORMS } from '../../lib/platforms'; 
+import { MASTER_PLATFORMS } from '@/lib/platforms'; 
 
 export default function CompetitorsPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   // --- 1. STATE ---
   const [competitors, setCompetitors] = useState<any[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,37 +25,46 @@ export default function CompetitorsPage() {
   const [availablePlatforms, setAvailablePlatforms] = useState<any[]>([]);
 
   // --- 2. DATA LOADING ---
-  useEffect(() => {
-    // A. Auth Check
-    const token = localStorage.getItem('auth_token');
-    if (!token) { router.push('/login'); return; }
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      // A. Load Competitors
+      const compRes = await fetch('/api/competitors');
+      if (compRes.ok) {
+        const parsed = await compRes.json();
+        setCompetitors(parsed);
+        if (parsed.length > 0 && !selectedId) setSelectedId(parsed[0].id);
+      }
 
-    const type = localStorage.getItem('account_type');
-    if (type === 'personal') { router.push('/'); return; }
+      // B. Load Settings/Platforms
+      const settingsRes = await fetch('/api/settings');
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        const activeIds = settings.my_active_platforms || [];
+        const customDefs = settings.custom_platform_definitions || [];
+        const allKnown = [...MASTER_PLATFORMS, ...customDefs];
 
-    // B. Load Competitors
-    const savedComps = localStorage.getItem('my_competitors');
-    if (savedComps) {
-      const parsed = JSON.parse(savedComps);
-      setCompetitors(parsed);
-      if (parsed.length > 0) setSelectedId(parsed[0].id);
+        const userPlatforms = activeIds.map((id: string) => {
+          const found = allKnown.find(p => p.id === id);
+          return found ? { id: found.id, label: found.label } : null;
+        }).filter(Boolean);
+
+        setAvailablePlatforms(userPlatforms);
+      }
+    } catch (error) {
+      console.error("Failed to load competitors data", error);
+    } finally {
+      setLoading(false);
     }
+  }, [selectedId]);
 
-    // C. LOAD USER'S ACTIVE PLATFORMS
-    const savedActiveIds = JSON.parse(localStorage.getItem('my_active_platforms') || '[]');
-    
-    const customDefs = JSON.parse(localStorage.getItem('custom_platform_definitions') || '[]');
-    const allKnown = [...MASTER_PLATFORMS, ...customDefs];
-
-    const userPlatforms = savedActiveIds.map((id: string) => {
-      const found = allKnown.find(p => p.id === id);
-      return found ? { id: found.id, label: found.label } : null;
-    }).filter(Boolean);
-
-    setAvailablePlatforms(userPlatforms);
-    
-    setLoading(false);
-  }, [router]);
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    } else if (status === 'authenticated') {
+      loadData();
+    }
+  }, [status, router, loadData]);
 
   // --- 3. HELPER: GENERATE DATA ---
   // FIX: Added ': string' to name and platform
@@ -99,35 +110,50 @@ export default function CompetitorsPage() {
   }, [selectedId, comparePlatform, competitors]); 
 
   // --- 5. HANDLERS ---
-  // FIX: Added ': any' to event e
-  const handleAddCompetitor = (e: any) => {
+  const handleAddCompetitor = async (e: any) => {
     e.preventDefault();
     if (!searchQuery) return;
 
-    const newComp = {
-      id: Date.now(),
-      name: searchQuery,
-      rating: (3.5 + Math.random() * 1.5).toFixed(1),
-      trend: Math.random() > 0.5 ? 'up' : 'down'
-    };
+    try {
+      const res = await fetch('/api/competitors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: searchQuery,
+          platform: comparePlatform === 'all' ? 'google' : comparePlatform, // Default to google or selected
+          url: '' 
+        })
+      });
 
-    const newList = [...competitors, newComp];
-    setCompetitors(newList);
-    setSelectedId(newComp.id); 
-    setSearchQuery('');
-    
-    localStorage.setItem('my_competitors', JSON.stringify(newList));
+      if (res.ok) {
+        const newComp = await res.json();
+        setCompetitors(prev => [newComp, ...prev]);
+        setSelectedId(newComp.id); 
+        setSearchQuery('');
+      }
+    } catch (error) {
+      console.error("Failed to add competitor", error);
+    }
   };
 
-  // FIX: Added ': any' to e, and ': number' to id
-  const handleDelete = (e: any, id: number) => {
+  const handleDelete = async (e: any, id: string | number) => {
     e.stopPropagation(); 
-    const newList = competitors.filter(c => c.id !== id);
-    setCompetitors(newList);
-    localStorage.setItem('my_competitors', JSON.stringify(newList));
-    
-    if (selectedId === id) {
-      setSelectedId(newList.length > 0 ? newList[0].id : null);
+    if (!confirm("Are you sure you want to remove this competitor?")) return;
+
+    try {
+      const res = await fetch(`/api/competitors/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        const newList = competitors.filter(c => c.id !== id);
+        setCompetitors(newList);
+        if (selectedId === id) {
+          setSelectedId(newList.length > 0 ? newList[0].id : null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete competitor", error);
     }
   };
 
@@ -136,7 +162,18 @@ export default function CompetitorsPage() {
   const currentThemScore = chartData.length > 0 ? chartData[chartData.length - 1].them : 0;
   const isWinning = currentMeScore >= currentThemScore;
 
-  if (loading) return null;
+  if (status === 'loading' || (loading && competitors.length === 0)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-500 text-sm">Loading Competitors...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return null;
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">

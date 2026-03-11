@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Utensils, Stethoscope, Gavel, Home, ArrowRight, CheckCircle, Store, User } from 'lucide-react';
+import { Building2, Utensils, Stethoscope, Gavel, Home, ArrowRight, CheckCircle, Store, User, Loader2 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   
-  // FIX 1: Explicitly tell TypeScript the step is a number
   const [step, setStep] = useState<number>(-1); 
   const [loading, setLoading] = useState(false);
-  
-  // FIX 2: Explicitly tell TypeScript this can be a 'string' OR 'null'
-  // This prevents the "Argument of type string is not assignable to null" error
   const [accountType, setAccountType] = useState<string | null>(null); 
   const [businessName, setBusinessName] = useState('');
   
@@ -22,30 +20,42 @@ export default function OnboardingPage() {
 
   // 1. Check Logic on Mount
   useEffect(() => {
-    // Load Name
-    const settings = localStorage.getItem('app_settings');
-    if (settings) {
-      setBusinessName(JSON.parse(settings).businessName);
+    if (status === 'unauthenticated') {
+      router.push('/login');
+      return;
     }
+    if (status !== 'authenticated') return;
 
-    // CHECK: Do we know the Account Type?
-    const type = localStorage.getItem('account_type');
-    
-    if (!type) {
-      // CASE A: Google Signup (Type is missing) -> Go to Step 0 (Ask Type)
-      setStep(0);
-    } else {
-      // CASE B: Email Signup (Type is known) -> Go to standard flow
-      setAccountType(type);
-      if (type === 'personal') setStep(2); // Skip Industry
-      else setStep(1); // Go to Industry
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const settings = await res.json();
+          if (settings.businessName) setBusinessName(settings.businessName);
+          
+          if (!settings.accountType) {
+            setStep(0);
+          } else {
+            setAccountType(settings.accountType);
+            if (settings.accountType === 'personal') setStep(2);
+            else setStep(1);
+          }
+        }
+      } catch (e) {
+        setStep(0);
+      }
     }
-  }, []);
+    checkStatus();
+  }, [status, router]);
 
   // FIX 3: Add type 'string' to the function parameter
-  const handleSelectType = (type: string) => {
+  const handleSelectType = async (type: string) => {
     setAccountType(type);
-    localStorage.setItem('account_type', type);
+    await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: type })
+    });
     
     // Auto-advance
     if (type === 'personal') setStep(2); // Skip Industry
@@ -53,20 +63,19 @@ export default function OnboardingPage() {
   };
 
   // 3. Handle Finish
-  const handleFinish = () => {
+  const handleFinish = async () => {
     setLoading(true);
-    setTimeout(() => {
-      const currentSettings = JSON.parse(localStorage.getItem('app_settings') || '{}');
-      
-      const newSettings = {
-        ...currentSettings,
-        industry: industry, 
-        aiKeywords: keywords
-      };
-
-      localStorage.setItem('app_settings', JSON.stringify(newSettings));
+    try {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ industry, aiKeywords: keywords })
+      });
       router.push('/');
-    }, 1500);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
   };
 
   const INDUSTRIES = [

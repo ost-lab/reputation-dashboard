@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
-import Header from '../../components/Header';
-// 1. Import the new component
-import WebhookConnect from '../../components/WebhookConnect'; 
+import Sidebar from '@/components/Sidebar';
+import Header from '@/components/Header';
+import WebhookConnect from '@/components/WebhookConnect'; 
+import { useSession } from 'next-auth/react';
 import { Save, Store, User, Bot, Bell, CheckCircle } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -23,24 +23,37 @@ export default function SettingsPage() {
 
   // Load Settings & Account Type on Mount
   useEffect(() => {
-    const type = localStorage.getItem('account_type');
-    if (type) setAccountType(type);
-
-    const saved = localStorage.getItem('app_settings');
-    if (saved) {
-      setSettings(JSON.parse(saved));
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const data = await res.json();
+          setSettings(prev => ({ ...prev, ...data }));
+          if (data.accountType) setAccountType(data.accountType);
+        }
+      } catch (e) {
+        console.error("Settings load failed", e);
+      }
     }
+    loadSettings();
   }, []);
 
   // Handle Save
-  const handleSave = () => {
+  const handleSave = async () => {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem('app_settings', JSON.stringify(settings));
-      setLoading(false);
+    try {
+      await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-    }, 800);
+    } catch (e) {
+      console.error("Save failed", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

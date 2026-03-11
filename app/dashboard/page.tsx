@@ -43,30 +43,31 @@ export default function DashboardPage() {
   }, [status, router]);
 
   // 3. Load Settings
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const res = await fetch('/api/settings');
-        if (res.ok) {
-          const settings = await res.json();
-          if (settings.my_active_platforms) {
-            setActivePlatformIds(settings.my_active_platforms);
-          }
-          if (settings.current_view_platform) {
-            setSelectedPlatform(settings.current_view_platform);
-          }
-          if (settings.custom_platform_definitions && settings.custom_platform_definitions.length > 0) {
-            setAllPlatforms([...MASTER_PLATFORMS, ...settings.custom_platform_definitions]);
-          } else {
-            setAllPlatforms(MASTER_PLATFORMS);
-          }
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings.my_active_platforms) {
+          setActivePlatformIds(settings.my_active_platforms);
+        }
+        if (settings.current_view_platform) {
+          setSelectedPlatform(settings.current_view_platform);
+        }
+        if (settings.custom_platform_definitions && settings.custom_platform_definitions.length > 0) {
+          setAllPlatforms([...MASTER_PLATFORMS, ...settings.custom_platform_definitions]);
         } else {
           setAllPlatforms(MASTER_PLATFORMS);
         }
-      } catch (e) {
+      } else {
         setAllPlatforms(MASTER_PLATFORMS);
       }
+    } catch (e) {
+      setAllPlatforms(MASTER_PLATFORMS);
     }
+  };
+
+  useEffect(() => {
     loadSettings();
   }, []);
 
@@ -242,7 +243,7 @@ export default function DashboardPage() {
             currentIds={activePlatformIds}
             onClose={() => setIsAddModalOpen(false)}
             onSave={handleSavePlatforms}
-            onCustomAdded={refreshPlatformDefinitions}
+            onCustomAdded={loadSettings}
           />
         )}
       </div>

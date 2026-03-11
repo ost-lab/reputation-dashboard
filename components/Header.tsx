@@ -14,28 +14,28 @@ export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Keep your existing local storage logic for UI preferences if you want
-    const type = localStorage.getItem('account_type');
-    if (type) setAccountType(type);
-
-    const savedSettings = localStorage.getItem('app_settings');
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      if (parsed.businessName) setDisplayName(parsed.businessName);
+    async function loadHeaderSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        if (res.ok) {
+          const settings = await res.json();
+          if (settings.businessName) setDisplayName(settings.businessName);
+          if (settings.user_plan === 'pro' || settings.user_plan === 'enterprise') setIsPro(true);
+        }
+      } catch (e) {
+        console.error("Header settings load failed", e);
+      }
     }
+    loadHeaderSettings();
 
-    const plan = localStorage.getItem('user_plan');
-    if (plan === 'pro' || plan === 'enterprise') setIsPro(true);
-  }, []);
+    // Account Type from session extension if possible, or default
+    if (session?.user?.accountType) {
+        setAccountType(session.user.accountType);
+    }
+  }, [session]);
 
-  // ✅ FIXED LOGOUT FUNCTION
   const handleLogout = async () => {
     if (confirm("Are you sure you want to log out?")) {
-      // 1. Optional: Clear your custom local storage items
-      localStorage.removeItem('auth_token'); 
-      localStorage.removeItem('account_type'); // Optional cleanup
-      
-      // 2. REQUIRED: Call signOut to clear Cookies and Session
       await signOut({ callbackUrl: '/login' });
     }
   };
